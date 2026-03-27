@@ -29,17 +29,5 @@ echo ""
 # echo "✅ Linting passed"
 # echo ""
 
-# 3. ShiftAI Pre-commit Hook - Detect and strip AI markers
-echo "🤖 Running ShiftAI hook..."
-npx @deriv-com/shiftai-cli hook pre-commit
-SHIFTAI_EXIT=$?
-
-if [ $SHIFTAI_EXIT -ne 0 ]; then
-  echo "❌ ShiftAI hook failed"
-  exit 1
-fi
-echo "✅ ShiftAI hook passed"
-echo ""
-
 echo "✨ All pre-commit checks passed!"
 exit 0

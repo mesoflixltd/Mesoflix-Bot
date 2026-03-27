@@ -297,7 +297,6 @@ export function buildSmartchartsChampionAdapter(
                     // Process all streaming messages for this subscription
                     // The transport layer already filters by subscription ID
                     try {
-                        logger.log('Stream message received:', response);
                         const quote = response;
                         callback(quote);
                     } catch (error) {

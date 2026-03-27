@@ -36,7 +36,6 @@ const AppContent = observer(() => {
     const is_subscribed_to_msg_listener = React.useRef(false);
     const msg_listener = React.useRef(null);
     const { connectionStatus } = useApiBase();
-    console.log('connection status', connectionStatus);
 
     // Initialize dev mode keyboard shortcuts
     useDevMode();
@@ -123,8 +122,6 @@ const AppContent = observer(() => {
 
         const retrieveActiveSymbols = () => {
             const { active_symbols } = ApiHelpers.instance;
-            console.log(ApiHelpers.instance);
-            console.log(active_symbols);
 
             active_symbols.retrieveActiveSymbols(true).then(() => {
                 setIsLoading(false);

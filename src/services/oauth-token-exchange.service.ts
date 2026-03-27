@@ -133,7 +133,15 @@ export class OAuthTokenExchangeService {
             // - client_id: your OAuth2 client ID
             // - code_verifier: the PKCE code verifier (proves we initiated the auth flow)
 
-            const clientId = process.env.CLIENT_ID || '32izC2lBT4MmiSNWuxq2l';
+            const clientId = process.env.CLIENT_ID;
+            if (!clientId) {
+                ErrorLogger.error('OAuth', 'CLIENT_ID environment variable is not set');
+                return {
+                    error: 'invalid_client',
+                    error_description: 'CLIENT_ID is not configured. Please set the CLIENT_ID environment variable.',
+                };
+            }
+
             const protocol = window.location.protocol;
             const host = window.location.host;
             const redirectUrl = `${protocol}//${host}`;

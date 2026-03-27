@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
-import brandConfig from '@/../brand.config.json';
 import { generateOAuthURL } from '@/components/shared';
 import Button from '@/components/shared_ui/button';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
@@ -84,16 +83,21 @@ const AppHeader = observer(() => {
         return () => clearTimeout(timer);
     }, [isAuthorizing, activeLoginid, setIsAuthorizing, authTimeout, isOAuthPending]);
 
-    const signupUrl = (() => {
-        const isStaging =
-            typeof window !== 'undefined' &&
-            (window.location.hostname.includes('staging') || window.location.hostname === 'localhost');
-        return isStaging ? brandConfig.signup_url.staging : brandConfig.signup_url.production;
-    })();
-
-    const handleSignup = useCallback(() => {
-        window.open(signupUrl, '_blank', 'noopener,noreferrer');
-    }, [signupUrl]);
+    const handleSignup = useCallback(async () => {
+        try {
+            setIsAuthorizing(true);
+            const oauthUrl = await generateOAuthURL('registration');
+            if (oauthUrl) {
+                window.location.replace(oauthUrl);
+            } else {
+                console.error('Failed to generate OAuth URL for signup');
+                setIsAuthorizing(false);
+            }
+        } catch (error) {
+            console.error('Signup redirection failed:', error);
+            setIsAuthorizing(false);
+        }
+    }, [setIsAuthorizing]);
 
     const handleLogin = useCallback(async () => {
         try {

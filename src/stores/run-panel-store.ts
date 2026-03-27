@@ -1,7 +1,7 @@
 import { action, computed, makeObservable, observable, reaction, runInAction } from 'mobx';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message } from '@/components/bot-notification/bot-notification-utils';
-import { generateSignupURL, isSafari, mobileOSDetect, standalone_routes } from '@/components/shared';
+import { generateOAuthURL, isSafari, mobileOSDetect, standalone_routes } from '@/components/shared';
 import { contract_stages, TContractStage } from '@/constants/contract-stage';
 import { run_panel } from '@/constants/run-panel';
 import { ErrorTypes, MessageTypes, observer, unrecoverable_errors } from '@/external/bot-skeleton';
@@ -373,7 +373,9 @@ export default class RunPanelStore {
     showLoginDialog = () => {
         // Only allow closing through the buttons
         this.onOkButtonClick = () => {
-            window.open(generateSignupURL());
+            generateOAuthURL('registration').then(url => {
+                if (url) window.location.replace(url);
+            });
             this.is_dialog_open = false;
         };
         this.onCancelButtonClick = () => {
