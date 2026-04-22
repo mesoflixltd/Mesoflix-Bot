@@ -87,10 +87,12 @@
 
     &__scroll-container {
         flex: 1;
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
         position: relative;
         display: flex;
         flex-direction: column;
+        -webkit-overflow-scrolling: touch;
     }
 
     &__content {
