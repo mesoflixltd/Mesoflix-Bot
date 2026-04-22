@@ -240,16 +240,6 @@ class APIBase {
                             const data = message[msg_type];
                             if (!data) return;
 
-                            // Critical Fix: Capture the 'buy' response to enrich future 'contract.status' events
-                            if (msg_type === 'buy') {
-                                this.last_buy_data = data;
-                                globalObserver.emit('contract.status', {
-                                    id: 'contract.purchase_received',
-                                    buy: data,
-                                });
-                                return;
-                            }
-
                             if (msg_type === 'balance') {
                                 const current_auth_data = authData$.value;
                                 const current_account_list = current_auth_data?.account_list || [];
@@ -288,19 +278,6 @@ class APIBase {
                                     if (data.currency) currentClientStore.setCurrency(data.currency);
                                 }
                                 return;
-                            }
-
-                            // Only emit specialized events on their dedicated channels.
-                            // Do NOT send everything through bot.contract as it crashes the UI.
-                            if (msg_type === 'proposal_open_contract') {
-                                globalObserver.emit('bot.contract', data);
-                                
-                                const is_sold = this.isContractClosed(data);
-                                globalObserver.emit('contract.status', {
-                                    id: is_sold ? 'contract.sold' : 'contract.purchase_received',
-                                    contract: data,
-                                    buy: this.last_buy_data || {}, // Defensive: Provide last buy data or empty object to prevent crash
-                                });
                             }
                         });
 
@@ -533,12 +510,11 @@ class APIBase {
                 await doUntilDone(
                     async () => {
                         console.log(`[APIBase] Subscribing to ${streamName}...`);
-                        // Use native socket to bypass SDK swallowing stream responses for send()
                         if (this.api?.connection?.readyState === 1) {
-                            this.api.connection.send(JSON.stringify({
+                            return this.api.send({
                                 [streamName]: 1,
                                 subscribe: 1,
-                            }));
+                            });
                         }
                         return Promise.resolve();
                     },
