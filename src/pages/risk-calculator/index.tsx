@@ -304,17 +304,15 @@ const RiskCalculator = observer(() => {
                 </Text>
             </div>
 
-            <div className='risk-calculator-page__scroll-container'>
-                {isDesktop ? (
-                    <ThemedScrollbars>
+            {isDesktop ? (
+                <div className='risk-calculator-page__scroll-container'>
+                    <ThemedScrollbars autoHide>
                         {renderContent()}
                     </ThemedScrollbars>
-                ) : (
-                    <div className='risk-calculator-page__native-scroll'>
-                        {renderContent()}
-                    </div>
-                )}
-            </div>
+                </div>
+            ) : (
+                renderContent()
+            )}
         </div>
     );
 });
