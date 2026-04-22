@@ -71,7 +71,7 @@
         },
         "footer": {
             "enable_language_settings": false,
-            "enable_theme_toggle": false
+            "enable_theme_toggle": true
         },
         "hostname": {
             "production": {

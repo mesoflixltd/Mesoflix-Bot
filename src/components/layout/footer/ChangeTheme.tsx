@@ -15,7 +15,7 @@ const ChangeTheme = observer(() => {
             tooltipContent={localize('Change theme')}
             onClick={toggleTheme}
         >
-            {!is_dark_mode_on ? <LegacyThemeLightIcon iconSize='xs' /> : <LegacyThemeDarkIcon iconSize='xs' />}
+            {!is_dark_mode_on ? <LegacyThemeLightIcon iconSize='sm' /> : <LegacyThemeDarkIcon iconSize='sm' />}
         </Tooltip>
     );
 });
