@@ -54,14 +54,10 @@ export default defineConfig({
                     ignore: ['**/*.LICENSE.txt'],
                 },
             },
-            { from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets/*', to: 'assets/[name][ext]' },
             {
-                from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets/fonts/*',
-                to: 'assets/fonts/[name][ext]',
-            },
-            {
-                from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets/shaders/*',
-                to: 'assets/shaders/[name][ext]',
+                from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets/**',
+                to: 'assets',
+                context: 'node_modules/@deriv-com/smartcharts-champion/dist/assets',
             },
             { from: path.join(__dirname, 'public') },
         ],
