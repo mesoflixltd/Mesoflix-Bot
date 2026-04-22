@@ -59,11 +59,11 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
             id: 'my-computer',
             icon: (
                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="4" y="8" width="40" height="26" rx="3" fill="var(--general-section-1)" stroke="var(--brand-red-coral)" strokeWidth="2"/>
-                    <path d="M12 34L8 40H40L36 34H12Z" fill="var(--brand-red-coral)"/>
-                    <rect x="10" y="14" width="28" height="14" rx="1" fill="#151717"/>
-                    <path d="M14 20H20M14 24H24M14 16H34" stroke="var(--brand-red-coral)" strokeWidth="1.5" strokeLinecap="round"/>
-                    <circle cx="34" cy="24" r="3" fill="var(--brand-red-coral)" fillOpacity="0.3"/>
+                    <rect x="4" y="10" width="40" height="26" rx="3" fill="var(--general-section-1)" stroke="#ff444f" strokeWidth="2.5"/>
+                    <path d="M12 36L10 42H38L36 36H12Z" fill="#ff444f"/>
+                    <rect x="10" y="16" width="28" height="14" rx="1" fill="#1e1e1e"/>
+                    <path d="M14 22H24M14 26H30M14 19H34" stroke="#ff444f" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="34" cy="23" r="4" fill="#ff444f" fillOpacity="0.3"/>
                 </svg>
             ),
             content: is_mobile ? <Localize i18n_default_text='Local' /> : <Localize i18n_default_text='My computer' />,
@@ -79,7 +79,7 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
                     <path d="M31.5 8L16.5 8L22 18L37 18L31.5 8Z" fill="#4285F4"/>
                     <path d="M11.5 36L32 36L37 26L16.5 26L11.5 36Z" fill="#F4B400"/>
                     <path d="M22 18L16.5 26L31.5 36L37 26L22 18Z" fill="#DB4437" fillOpacity="0.2"/>
-                    <path d="M16.5 8L6 26L11.5 36M31.5 8L16.5 8L22 18L37 18L31.5 8ZM11.5 36L32 36L37 26L16.5 26L11.5 36Z" stroke="white" strokeWidth="0.5" strokeOpacity="0.3"/>
+                    <rect x="2" y="2" width="44" height="44" rx="8" stroke="white" strokeWidth="0.5" strokeOpacity="0.1"/>
                 </svg>
             ),
             content: <Localize i18n_default_text='Google Drive' />,
@@ -91,10 +91,12 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
             id: 'bot-builder',
             icon: (
                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="8" y="8" width="32" height="32" rx="4" stroke="var(--brand-blue)" strokeWidth="2" strokeDasharray="4 4"/>
-                    <path d="M14 24H18M30 24H34M24 14V18M24 30V34" stroke="var(--brand-blue)" strokeWidth="2" strokeLinecap="round"/>
-                    <rect x="20" y="20" width="8" height="8" rx="1" fill="var(--brand-blue)"/>
-                    <path d="M14 14L18 18M30 30L34 34M34 14L30 18M18 30L14 34" stroke="var(--brand-blue)" strokeWidth="1.5" strokeLinecap="round"/>
+                    <rect x="8" y="8" width="32" height="32" rx="4" stroke="#377cfc" strokeWidth="3" strokeDasharray="3 3"/>
+                    <path d="M14 24H20M28 24H34M24 14V20M24 28V34" stroke="#377cfc" strokeWidth="2.5" strokeLinecap="round"/>
+                    <rect x="21" y="21" width="6" height="6" rx="1" fill="#377cfc">
+                        <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
+                    </rect>
+                    <path d="M12 12L16 16M32 32L36 36M36 12L32 16M16 32L12 36" stroke="#377cfc" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
             ),
             content: <Localize i18n_default_text='Bot Builder' />,
@@ -106,10 +108,14 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
             id: 'quick-strategy',
             icon: (
                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M24 4V10M40 10L35 15M44 24H38M40 38L35 33M24 44V38M8 38L13 33M4 24H10M8 10L13 15" stroke="var(--brand-red-coral)" strokeWidth="2" strokeLinecap="round"/>
-                    <path d="M24 24L32 16" stroke="var(--brand-red-coral)" strokeWidth="3" strokeLinecap="round"/>
-                    <circle cx="24" cy="24" r="4" fill="var(--brand-red-coral)"/>
-                    <path d="M29 32C31.5 29.5 33 26 33 22C33 13.1634 25.8366 6 17 6" stroke="var(--brand-red-coral)" strokeWidth="2" strokeOpacity="0.2"/>
+                    <circle cx="24" cy="24" r="18" stroke="#ff444f" strokeWidth="2.5" strokeOpacity="0.2"/>
+                    <path d="M24 6V10M42 24H38M24 42V38M6 24H10" stroke="#ff444f" strokeWidth="3" strokeLinecap="round"/>
+                    <path d="M36.7 11.3L33.9 14.1M36.7 36.7L33.9 33.9M11.3 36.7L14.1 33.9M11.3 11.3L14.1 14.1" stroke="#ff444f" strokeWidth="2" strokeOpacity="0.5"/>
+                    <path d="M24 24L34 14" stroke="#ff444f" strokeWidth="4" strokeLinecap="round"/>
+                    <circle cx="24" cy="24" r="5" fill="#ff444f"/>
+                    <path d="M7 24C7 14.6112 14.6112 7 24 7" stroke="#ff444f" strokeWidth="3" strokeLinecap="round">
+                        <animate attributeName="stroke-dasharray" from="0 60" to="60 60" dur="1.5s" repeatCount="indefinite" />
+                    </path>
                 </svg>
             ),
             content: <Localize i18n_default_text='Quick strategy' />,
