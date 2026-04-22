@@ -211,14 +211,29 @@ class APIBase {
                             this.message_subscription = null;
                         }
 
-                        // Subscribe to all incoming WebSocket messages (fallback for unsolicited messages)
-                        this.message_subscription = this.api.onMessage().subscribe((message: any) => {
-                            if (!message) return;
-                            const msg_type = message.msg_type;
-                            if (msg_type) {
-                                console.log(`[APIBase] Received unsolicited ${msg_type}`);
-                            } else {
-                                console.log(`[APIBase] Received unsolicited message without msg_type:`, JSON.stringify(message).substring(0, 100));
+                        // Subscribe to all incoming WebSocket messages (Central dispatch for this library version)
+                        this.message_subscription = this.api.onMessage().subscribe((envelope: any) => {
+                            // Unwrap the { name: 'message', data: { ... } } structure
+                            const message = envelope?.data || {};
+                            const msg_type = message.msg_type || Object.keys(message).find(k => ['balance', 'transaction', 'proposal_open_contract'].includes(k));
+                            
+                            if (!msg_type) return;
+
+                            const data = message[msg_type];
+                            if (!data) return;
+
+                            console.log(`[APIBase] Processing ${msg_type} update`);
+
+                            // Emit 'bot.contract' for all critical streams to update UI/Balance
+                            globalObserver.emit('bot.contract', data);
+
+                            // Special handling for contract status transitions to unblock the bot
+                            if (msg_type === 'proposal_open_contract') {
+                                const is_sold = !!data.is_sold;
+                                globalObserver.emit('contract.status', {
+                                    id: is_sold ? 'contract.sold' : 'contract.purchase_received',
+                                    contract: data,
+                                });
                             }
                         });
 
@@ -437,57 +452,18 @@ class APIBase {
     }
 
     async subscribe() {
-        const subscribeToStream = async (streamName: string) => {
+        const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
+        
+        for (const streamName of streamsToSubscribe) {
             try {
                 await doUntilDone(
-                    () => {
+                    async () => {
                         console.log(`[APIBase] Subscribing to ${streamName}...`);
-                        const observable = this.api?.send({
+                        // We rely on the global message listener in init() to handle the results
+                        return this.api?.send({
                             [streamName]: 1,
                             subscribe: 1,
                         });
-
-                        if (observable && typeof observable.subscribe === 'function') {
-                            return new Promise((resolve, reject) => {
-                                let isFirst = true;
-                                const sub = observable.subscribe(
-                                    (message: any) => {
-                                        if (!message || !message[streamName]) return;
-                                        
-                                        const data = message[streamName];
-                                        console.log(`[APIBase] Received ${streamName} update`);
-
-                                        // Emit 'bot.contract' for all streams as general data update
-                                        globalObserver.emit('bot.contract', data);
-
-                                        // Special handling for contract status transitions
-                                        if (streamName === 'proposal_open_contract') {
-                                            const is_sold = !!data.is_sold;
-                                            globalObserver.emit('contract.status', {
-                                                id: is_sold ? 'contract.sold' : 'contract.purchase_received',
-                                                contract: data,
-                                            });
-                                        }
-
-                                        if (isFirst) {
-                                            isFirst = false;
-                                            console.log(`[APIBase] Subscription to ${streamName} confirmed`);
-                                            resolve(message);
-                                        }
-                                    },
-                                    (err: any) => {
-                                        console.error(`[APIBase] Stream error for ${streamName}:`, err);
-                                        if (isFirst) {
-                                            isFirst = false;
-                                            reject(err);
-                                        }
-                                    }
-                                );
-                                
-                                this.current_auth_subscriptions.push(sub);
-                            });
-                        }
-                        return Promise.reject(new Error('Failed to get observable from subscribe call'));
                     },
                     [],
                     this
@@ -495,10 +471,7 @@ class APIBase {
             } catch (err) {
                 console.error(`[APIBase] Failed to subscribe to ${streamName}:`, err);
             }
-        };
-
-        const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
-        await Promise.allSettled(streamsToSubscribe.map(subscribeToStream));
+        }
     }
 
     getActiveSymbols = async () => {
