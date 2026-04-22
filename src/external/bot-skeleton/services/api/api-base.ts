@@ -215,7 +215,11 @@ class APIBase {
                         this.message_subscription = this.api.onMessage().subscribe((message: any) => {
                             if (!message) return;
                             const msg_type = message.msg_type;
-                            console.log(`[APIBase] Received unsolicited ${msg_type}`);
+                            if (msg_type) {
+                                console.log(`[APIBase] Received unsolicited ${msg_type}`);
+                            } else {
+                                console.log(`[APIBase] Received unsolicited message without msg_type:`, JSON.stringify(message).substring(0, 100));
+                            }
                         });
 
                         if (this.onsocketopenBound) {
@@ -436,37 +440,54 @@ class APIBase {
         const subscribeToStream = async (streamName: string) => {
             try {
                 await doUntilDone(
-                    async () => {
+                    () => {
                         console.log(`[APIBase] Subscribing to ${streamName}...`);
-                        const subscription = this.api?.send({
+                        const observable = this.api?.send({
                             [streamName]: 1,
                             subscribe: 1,
                         });
 
-                        if (subscription && typeof subscription.subscribe === 'function') {
-                            const sub = subscription.subscribe((message: any) => {
-                                if (!message || !message[streamName]) return;
+                        if (observable && typeof observable.subscribe === 'function') {
+                            return new Promise((resolve, reject) => {
+                                let isFirst = true;
+                                const sub = observable.subscribe(
+                                    (message: any) => {
+                                        if (!message || !message[streamName]) return;
+                                        
+                                        const data = message[streamName];
+                                        console.log(`[APIBase] Received ${streamName} update`);
+
+                                        // Emit 'bot.contract' for all streams as general data update
+                                        globalObserver.emit('bot.contract', data);
+
+                                        // Special handling for contract status transitions
+                                        if (streamName === 'proposal_open_contract') {
+                                            const is_sold = !!data.is_sold;
+                                            globalObserver.emit('contract.status', {
+                                                id: is_sold ? 'contract.sold' : 'contract.purchase_received',
+                                                contract: data,
+                                            });
+                                        }
+
+                                        if (isFirst) {
+                                            isFirst = false;
+                                            console.log(`[APIBase] Subscription to ${streamName} confirmed`);
+                                            resolve(message);
+                                        }
+                                    },
+                                    (err: any) => {
+                                        console.error(`[APIBase] Stream error for ${streamName}:`, err);
+                                        if (isFirst) {
+                                            isFirst = false;
+                                            reject(err);
+                                        }
+                                    }
+                                );
                                 
-                                const data = message[streamName];
-                                console.log(`[APIBase] Received ${streamName} update`);
-
-                                // Emit 'bot.contract' for all streams as general data update
-                                globalObserver.emit('bot.contract', data);
-
-                                // Special handling for contract status transitions
-                                if (streamName === 'proposal_open_contract') {
-                                    const is_sold = !!data.is_sold;
-                                    globalObserver.emit('contract.status', {
-                                        id: is_sold ? 'contract.sold' : 'contract.purchase_received',
-                                        contract: data,
-                                    });
-                                }
+                                this.current_auth_subscriptions.push(sub);
                             });
-                            
-                            this.current_auth_subscriptions.push(sub);
-                            console.log(`[APIBase] Subscription to ${streamName} active`);
                         }
-                        return subscription;
+                        return Promise.reject(new Error('Failed to get observable from subscribe call'));
                     },
                     [],
                     this
