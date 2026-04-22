@@ -90,27 +90,10 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
         try {
             setIsResettingBalance(true);
-            const account_tokens = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
-            const auth_token = account_tokens?.[activeLoginid];
-            if (!auth_token) throw new Error('Missing auth token for active account');
+            const response = await api_base.api?.send({ topup_virtual: 1 });
 
-            const app_id = process.env.APP_ID || '36300';
-            const response = await fetch(
-                `https://api.derivws.com/trading/v1/options/accounts/${activeLoginid}/reset-demo-balance`,
-                {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${auth_token}`,
-                        'Content-Type': 'application/json',
-                        'Deriv-App-ID': String(app_id),
-                    },
-                }
-            );
-
-            if (!response.ok) {
-                const error_payload = await response.json().catch(() => ({}));
-                const error_message = error_payload?.errors?.[0]?.message || 'Unable to reset demo balance';
-                throw new Error(error_message);
+            if (response?.error) {
+                throw new Error(response.error.message || 'Unable to reset demo balance');
             }
 
             await api_base.api?.send({ balance: 1 });
