@@ -340,7 +340,10 @@ class APIBase {
                 this.is_initializing = false;
                 if (this.queued_force_reinit) {
                     this.queued_force_reinit = false;
-                    void this.init(true);
+                    // Only re-init if the connection actually failed to establish
+                    if (!this.api || this.api.connection?.readyState !== 1) {
+                        void this.init(true);
+                    }
                 }
             }
         })();
@@ -530,11 +533,14 @@ class APIBase {
                 await doUntilDone(
                     async () => {
                         console.log(`[APIBase] Subscribing to ${streamName}...`);
-                        // We rely on the global message listener in init() to handle the results
-                        return this.api?.send({
-                            [streamName]: 1,
-                            subscribe: 1,
-                        });
+                        // Use native socket to bypass SDK swallowing stream responses for send()
+                        if (this.api?.connection?.readyState === 1) {
+                            this.api.connection.send(JSON.stringify({
+                                [streamName]: 1,
+                                subscribe: 1,
+                            }));
+                        }
+                        return Promise.resolve();
                     },
                     [],
                     this
