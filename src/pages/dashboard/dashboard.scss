@@ -160,8 +160,8 @@
                     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
                     .icon-wrapper {
-                        width: 4rem;
-                        height: 4rem;
+                        width: 4.8rem;
+                        height: 4.8rem;
                         background: var(--general-section-1);
                         border-radius: 50%;
                         @include flex-center;
@@ -170,8 +170,8 @@
                         transition: all 0.3s ease;
 
                         @include mobile-or-tablet-screen {
-                            width: 3.6rem;
-                            height: 3.6rem;
+                            width: 4.2rem;
+                            height: 4.2rem;
                         }
                     }
 

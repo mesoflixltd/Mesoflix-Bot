@@ -57,47 +57,65 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
     const actions: TCardArray[] = [
         {
             id: 'my-computer',
-            icon: is_mobile ? (
-                <DerivLightLocalDeviceIcon height='48px' width='48px' />
-            ) : (
-                <DerivLightMyComputerIcon height='48px' width='48px' />
+            icon: (
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="4" y="8" width="40" height="26" rx="3" fill="var(--general-section-1)" stroke="var(--brand-red-coral)" strokeWidth="2"/>
+                    <path d="M12 34L8 40H40L36 34H12Z" fill="var(--brand-red-coral)"/>
+                    <rect x="10" y="14" width="28" height="14" rx="1" fill="#151717"/>
+                    <path d="M14 20H20M14 24H24M14 16H34" stroke="var(--brand-red-coral)" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="34" cy="24" r="3" fill="var(--brand-red-coral)" fillOpacity="0.3"/>
+                </svg>
             ),
             content: is_mobile ? <Localize i18n_default_text='Local' /> : <Localize i18n_default_text='My computer' />,
             callback: () => {
                 openFileLoader();
-                /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
-                /* [/AI] */
             },
         },
         {
             id: 'google-drive',
-            icon: <DerivLightGoogleDriveIcon height='48px' width='48px' />,
+            icon: (
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.5 8L6 26L11.5 36L22 18L16.5 8Z" fill="#00A65A"/>
+                    <path d="M31.5 8L16.5 8L22 18L37 18L31.5 8Z" fill="#4285F4"/>
+                    <path d="M11.5 36L32 36L37 26L16.5 26L11.5 36Z" fill="#F4B400"/>
+                    <path d="M22 18L16.5 26L31.5 36L37 26L22 18Z" fill="#DB4437" fillOpacity="0.2"/>
+                    <path d="M16.5 8L6 26L11.5 36M31.5 8L16.5 8L22 18L37 18L31.5 8ZM11.5 36L32 36L37 26L16.5 26L11.5 36Z" stroke="white" strokeWidth="0.5" strokeOpacity="0.3"/>
+                </svg>
+            ),
             content: <Localize i18n_default_text='Google Drive' />,
             callback: () => {
                 openGoogleDriveDialog();
-                /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
-                /* [/AI] */
             },
         },
         {
             id: 'bot-builder',
-            icon: <DerivLightBotBuilderIcon height='48px' width='48px' />,
+            icon: (
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="8" y="8" width="32" height="32" rx="4" stroke="var(--brand-blue)" strokeWidth="2" strokeDasharray="4 4"/>
+                    <path d="M14 24H18M30 24H34M24 14V18M24 30V34" stroke="var(--brand-blue)" strokeWidth="2" strokeLinecap="round"/>
+                    <rect x="20" y="20" width="8" height="8" rx="1" fill="var(--brand-blue)"/>
+                    <path d="M14 14L18 18M30 30L34 34M34 14L30 18M18 30L14 34" stroke="var(--brand-blue)" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+            ),
             content: <Localize i18n_default_text='Bot Builder' />,
             callback: () => {
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
-                /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
-                /* [/AI] */
             },
         },
         {
             id: 'quick-strategy',
-            icon: <DerivLightQuickStrategyIcon height='48px' width='48px' />,
+            icon: (
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M24 4V10M40 10L35 15M44 24H38M40 38L35 33M24 44V38M8 38L13 33M4 24H10M8 10L13 15" stroke="var(--brand-red-coral)" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M24 24L32 16" stroke="var(--brand-red-coral)" strokeWidth="3" strokeLinecap="round"/>
+                    <circle cx="24" cy="24" r="4" fill="var(--brand-red-coral)"/>
+                    <path d="M29 32C31.5 29.5 33 26 33 22C33 13.1634 25.8366 6 17 6" stroke="var(--brand-red-coral)" strokeWidth="2" strokeOpacity="0.2"/>
+                </svg>
+            ),
             content: <Localize i18n_default_text='Quick strategy' />,
             callback: () => {
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
                 setFormVisibility(true);
-                /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
-                /* [/AI] */
             },
         },
     ];
