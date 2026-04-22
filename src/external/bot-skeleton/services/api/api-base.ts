@@ -234,11 +234,12 @@ class APIBase {
                             // Unwrap the { name: 'message', data: { ... } } structure
                             const message = envelope?.data || {};
                             const msg_type = message.msg_type;
-                            
-                            if (!msg_type || !message[msg_type]) return;
+
+                            // Only skip messages with no type - do NOT skip if the value is 0 (e.g. balance=0)
+                            if (!msg_type) return;
 
                             const data = message[msg_type];
-                            if (!data) return;
+                            if (data === undefined || data === null) return;
 
                             if (msg_type === 'balance') {
                                 const current_auth_data = authData$.value;
@@ -507,20 +508,18 @@ class APIBase {
         
         for (const streamName of streamsToSubscribe) {
             try {
-                await doUntilDone(
-                    async () => {
-                        console.log(`[APIBase] Subscribing to ${streamName}...`);
-                        if (this.api?.connection?.readyState === 1) {
-                            this.api.connection.send(JSON.stringify({
-                                [streamName]: 1,
-                                subscribe: 1,
-                            }));
-                        }
-                        return Promise.resolve();
-                    },
-                    [],
-                    this
-                );
+                console.log(`[APIBase] Subscribing to ${streamName}...`);
+                if (this.api?.connection?.readyState === 1) {
+                    // Use raw WebSocket send (not api.send) to avoid the SDK binding
+                    // the stream to a tracked req_id promise. If we use api.send(),
+                    // the SDK captures the first response and subsequent stream updates
+                    // (e.g. proposal_open_contract sold event) are never forwarded to
+                    // onMessage() subscribers like OpenContract.js.
+                    this.api.connection.send(JSON.stringify({
+                        [streamName]: 1,
+                        subscribe: 1,
+                    }));
+                }
             } catch (err) {
                 console.error(`[APIBase] Failed to subscribe to ${streamName}:`, err);
             }
