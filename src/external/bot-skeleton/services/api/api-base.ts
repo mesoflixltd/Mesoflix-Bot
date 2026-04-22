@@ -244,8 +244,6 @@ class APIBase {
                                     contract: data,
                                     buy: this.last_buy_data || {}, // Defensive: Provide last buy data or empty object to prevent crash
                                 });
-                            } else if (msg_type === 'balance' || msg_type === 'transaction') {
-                                globalObserver.emit('bot.contract', data);
                             }
                         });
 
