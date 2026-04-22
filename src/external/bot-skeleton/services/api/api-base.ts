@@ -190,6 +190,10 @@ class APIBase {
 
                     this.api = await generateDerivApiInstance(force_create_connection);
 
+                    // Manually trigger onsocketopen since we just awaited the connection being established
+                    // The event listener below will handle future 'open' events (like after a disconnect)
+                    this.onsocketopen();
+
                     this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
                     this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
 
@@ -201,12 +205,6 @@ class APIBase {
                             currentClientStore.setWebSocketLoginId(active_login_id);
                         }
                     }
-                }
-
-                const hasAccountID = V2GetActiveAccountId();
-
-                if (!this.has_active_symbols && !hasAccountID) {
-                    this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
                 }
 
                 this.initEventListeners();
