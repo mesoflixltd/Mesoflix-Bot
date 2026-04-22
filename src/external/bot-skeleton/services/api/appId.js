@@ -91,7 +91,7 @@ export const generateDerivApiInstance = async (forceNew = false) => {
         return derivApiPromise;
     }
 
-    // Create new instance
+    // Create new instance if none exists or previous attempt failed
     derivApiPromise = (async () => {
         try {
             // Await the async getSocketURL() function
@@ -112,53 +112,54 @@ export const generateDerivApiInstance = async (forceNew = false) => {
                 middleware: new APIMiddleware({}),
             });
 
-            // Store the instance immediately (don't wait for connection)
+            // Store the instance immediately
             derivApiInstance = deriv_api;
 
-            // Log and wait for connection to open
+            // Return a promise that resolves when the connection is OPEN
             return new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => {
-                    deriv_socket.removeEventListener('open', onOpen);
-                    deriv_socket.removeEventListener('error', onError);
+                    cleanup();
                     reject(new Error('WebSocket connection timeout'));
                 }, 15000);
 
                 const onOpen = () => {
-                    clearTimeout(timeout);
-                    deriv_socket.removeEventListener('error', onError);
+                    cleanup();
                     console.log('[DerivAPI] WebSocket connection established');
                     resolve(deriv_api);
                 };
 
                 const onError = error => {
-                    clearTimeout(timeout);
-                    deriv_socket.removeEventListener('open', onOpen);
+                    cleanup();
                     console.error('[DerivAPI] WebSocket connection error:', error);
                     reject(error);
                 };
 
-                deriv_socket.addEventListener('open', onOpen);
-                deriv_socket.addEventListener('error', onError);
-
-                // Add standard close handler
-                deriv_socket.addEventListener('close', () => {
+                const onClose = () => {
                     console.log('[DerivAPI] WebSocket connection closed');
                     if (derivApiInstance === deriv_api) {
                         derivApiInstance = null;
+                        derivApiPromise = null; // Clear promise on close to allow re-init
                         currentWebSocketURL = null;
                     }
-                });
+                    cleanup();
+                };
+
+                const cleanup = () => {
+                    clearTimeout(timeout);
+                    deriv_socket.removeEventListener('open', onOpen);
+                    deriv_socket.removeEventListener('error', onError);
+                    deriv_socket.removeEventListener('close', onClose);
+                };
+
+                deriv_socket.addEventListener('open', onOpen);
+                deriv_socket.addEventListener('error', onError);
+                deriv_socket.addEventListener('close', onClose);
             });
         } catch (error) {
             console.error('[DerivAPI] Error creating instance:', error);
             derivApiPromise = null;
             derivApiInstance = null;
             throw error;
-        } finally {
-            // Clear the promise after a short delay to allow reuse during concurrent calls
-            setTimeout(() => {
-                derivApiPromise = null;
-            }, 100);
         }
     })();
 

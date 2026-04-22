@@ -64,6 +64,8 @@ class APIBase {
     active_symbols_promise: Promise<any[] | undefined> | null = null;
     common_store: CommonStore | undefined;
     reconnection_attempts: number = 0;
+    is_initializing = false;
+    private init_promise: Promise<void> | null = null;
 
     // Constants for timeouts - extracted magic numbers for better maintainability
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
@@ -151,54 +153,74 @@ class APIBase {
     }
 
     async init(force_create_connection = false) {
-        this.toggleRunButton(true);
-
-        if (this.api) {
-            this.unsubscribeAllSubscriptions();
+        if (this.is_initializing && !force_create_connection) {
+            console.log('[APIBase] Already initializing, waiting for existing promise...');
+            return this.init_promise;
         }
 
-        // Reset reconnection attempts counter on successful connection initialization
-        if (!force_create_connection) {
-            this.reconnection_attempts = 0;
-        }
+        this.is_initializing = true;
+        this.init_promise = (async () => {
+            try {
+                this.toggleRunButton(true);
 
-        if (!this.api || this.api?.connection.readyState !== 1 || force_create_connection) {
-            if (this.api?.connection) {
-                ApiHelpers.disposeInstance();
-                setConnectionStatus(CONNECTION_STATUS.CLOSED);
-                this.api.disconnect();
-                this.api.connection.removeEventListener('open', this.onsocketopen.bind(this));
-                this.api.connection.removeEventListener('close', this.onsocketclose.bind(this));
-            }
-
-            this.api = await generateDerivApiInstance();
-
-            this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
-            this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
-
-            // Store the current account ID used for this WebSocket connection
-            // This will be used to check if we need to regenerate the connection when the tab becomes active
-            const currentClientStore = globalObserver.getState('client.store');
-            if (currentClientStore) {
-                const active_login_id = getAccountId();
-                if (active_login_id) {
-                    currentClientStore.setWebSocketLoginId(active_login_id);
+                if (this.api) {
+                    this.unsubscribeAllSubscriptions();
                 }
+
+                // Reset reconnection attempts counter on successful connection initialization
+                if (!force_create_connection) {
+                    this.reconnection_attempts = 0;
+                }
+
+                const current_ready_state = this.api?.connection?.readyState;
+                const is_socket_usable = this.api && current_ready_state === 1;
+
+                if (!is_socket_usable || force_create_connection) {
+                    if (this.api?.connection) {
+                        try {
+                            ApiHelpers.disposeInstance();
+                            setConnectionStatus(CONNECTION_STATUS.CLOSED);
+                            this.api.connection.removeEventListener('open', this.onsocketopen.bind(this));
+                            this.api.connection.removeEventListener('close', this.onsocketclose.bind(this));
+                            this.api.disconnect();
+                        } catch (e) {
+                            console.warn('[APIBase] Error during cleanup:', e);
+                        }
+                    }
+
+                    this.api = await generateDerivApiInstance(force_create_connection);
+
+                    this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
+                    this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
+
+                    // Store the current account ID used for this WebSocket connection
+                    const currentClientStore = globalObserver.getState('client.store');
+                    if (currentClientStore) {
+                        const active_login_id = getAccountId();
+                        if (active_login_id) {
+                            currentClientStore.setWebSocketLoginId(active_login_id);
+                        }
+                    }
+                }
+
+                const hasAccountID = V2GetActiveAccountId();
+
+                if (!this.has_active_symbols && !hasAccountID) {
+                    this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
+                }
+
+                this.initEventListeners();
+
+                if (this.time_interval) clearInterval(this.time_interval);
+                this.time_interval = null;
+
+                chart_api.init(force_create_connection);
+            } finally {
+                this.is_initializing = false;
             }
-        }
+        })();
 
-        const hasAccountID = V2GetActiveAccountId();
-
-        if (!this.has_active_symbols && !hasAccountID) {
-            this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
-        }
-
-        this.initEventListeners();
-
-        if (this.time_interval) clearInterval(this.time_interval);
-        this.time_interval = null;
-
-        chart_api.init(force_create_connection);
+        return this.init_promise;
     }
 
     getConnectionStatus() {
@@ -228,6 +250,9 @@ class APIBase {
     }
 
     reconnectIfNotConnected = () => {
+        // Stop if already initializing
+        if (this.is_initializing) return;
+
         if (this.api?.connection?.readyState && this.api?.connection?.readyState > 1) {
             this.reconnection_attempts += 1;
 
@@ -297,10 +322,10 @@ class APIBase {
                     ? storedAccounts
                           .filter(a => !a.status || a.status === 'active')
                           .map(a => ({
-                              balance: parseFloat(a.balance) || 0,
-                              currency: a.currency || 'USD',
-                              is_virtual: a.account_type === 'demo' ? 1 : 0,
-                              loginid: a.account_id,
+                                balance: parseFloat(a.balance) || 0,
+                                currency: a.currency || 'USD',
+                                is_virtual: a.account_type === 'demo' ? 1 : 0,
+                                loginid: a.account_id,
                           }))
                     : currentAccount
                       ? [currentAccount]
