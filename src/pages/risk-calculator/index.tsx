@@ -2,15 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { v4 as uuidv4 } from 'uuid';
 import { 
-    LabelPairedCalculatorCaptionBoldIcon, 
-    LabelPairedBookCaptionBoldIcon,
+    LabelPairedChartMixedCaptionBoldIcon, 
+    LabelPairedMemoPadCaptionBoldIcon,
     LabelPairedCirclePlusCaptionRegularIcon,
-    LabelPairedTrashCanCaptionRegularIcon,
+    LabelPairedTrashCaptionRegularIcon,
     LabelPairedPenCaptionRegularIcon,
     LabelPairedCircleCheckCaptionRegularIcon,
     LabelPairedCircleExclamationCaptionRegularIcon
 } from '@deriv/quill-icons/LabelPaired';
-import { Button, InputField, Text, useDevice } from '@deriv-com/ui';
+import { Button, Text, useDevice } from '@deriv-com/ui';
+import InputField from '@/components/shared_ui/input-field';
 import { Localize, localize } from '@deriv-com/translations';
 import ThemedScrollbars from '@/components/shared_ui/themed-scrollbars';
 import './risk-calculator.scss';
@@ -125,7 +126,7 @@ const RiskCalculator = observer(() => {
                     {/* Left: Calculator */}
                     <div className='card'>
                         <div className='card__title'>
-                            <LabelPairedCalculatorCaptionBoldIcon width='24px' height='24px' fill='var(--brand-red-coral)' />
+                            <LabelPairedChartMixedCaptionBoldIcon width='24px' height='24px' fill='var(--brand-red-coral)' />
                             <Localize i18n_default_text='Risk Calculator' />
                         </div>
                         
@@ -183,7 +184,7 @@ const RiskCalculator = observer(() => {
                     <div className='card journal-section'>
                         <div className='journal-section__header'>
                             <div className='card__title'>
-                                <LabelPairedBookCaptionBoldIcon width='24px' height='24px' fill='var(--brand-blue)' />
+                                <LabelPairedMemoPadCaptionBoldIcon width='24px' height='24px' fill='var(--brand-blue)' />
                                 <Localize i18n_default_text='Trading Journal' />
                             </div>
                             <Button 
@@ -255,13 +256,13 @@ const RiskCalculator = observer(() => {
                                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                                     {entry.type === 'Plan' ? 
                                                         <LabelPairedCircleCheckCaptionRegularIcon width='16px' height='16px' fill='var(--brand-blue)' /> :
-                                                        <LabelPairedBookCaptionBoldIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
+                                                        <LabelPairedMemoPadCaptionBoldIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
                                                     }
                                                     <Text size='xs' color='less-prominent'>{entry.type}</Text>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '12px' }}>
                                                     <LabelPairedPenCaptionRegularIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
-                                                    <LabelPairedTrashCanCaptionRegularIcon 
+                                                    <LabelPairedTrashCaptionRegularIcon 
                                                         width='16px' 
                                                         height='16px' 
                                                         fill='var(--status-danger)' 
