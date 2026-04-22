@@ -225,7 +225,7 @@ export const generateOAuthURL = async (prompt?: string) => {
         // Use brand config for login URLs
         const environment = isProduction() ? 'production' : 'staging';
         const hostname = brandConfig?.platform.auth2_url?.[environment];
-        const clientId = process.env.CLIENT_ID;
+        const clientId = process.env.CLIENT_ID || (brandConfig as any).platform?.client_id;
 
         if (hostname && clientId) {
             // Generate CSRF token for security
@@ -259,7 +259,7 @@ export const generateOAuthURL = async (prompt?: string) => {
             }
 
             // Optional: legacy app_id for routing users on the Legacy Deriv API platform
-            const appId = process.env.APP_ID;
+            const appId = process.env.APP_ID || (brandConfig as any).platform?.app_id;
             if (appId) {
                 oauthUrl += `&app_id=${encodeURIComponent(appId)}`;
             }

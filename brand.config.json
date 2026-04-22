@@ -59,6 +59,8 @@
     },
     "platform": {
         "name": "Trading Bot",
+        "app_id": "330eaEOGxCeshCbrYIo8F",
+        "client_id": "330eaEOGxCeshCbrYIo8F",
         "logo": {
             "type": "component",
             "component_name": "BrandLogo",
