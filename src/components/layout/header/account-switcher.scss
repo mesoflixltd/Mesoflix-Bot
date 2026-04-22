@@ -735,8 +735,11 @@
     min-width: 24rem;
 
     @include mobile-screen {
-        right: -1rem;
-        transform: none;
+        position: fixed;
+        top: 6rem;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
         width: min(92vw, 32rem);
     }
 
