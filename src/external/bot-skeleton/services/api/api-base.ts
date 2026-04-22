@@ -66,6 +66,7 @@ class APIBase {
     reconnection_attempts: number = 0;
     is_initializing = false;
     private init_promise: Promise<void> | null = null;
+    private message_subscription: { unsubscribe: () => void } | null = null;
 
     // Constants for timeouts - extracted magic numbers for better maintainability
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000;
@@ -204,6 +205,30 @@ class APIBase {
                     this.token = '';
 
                     if (this.api?.connection) {
+                        // Cleanup previous message subscription
+                        if (this.message_subscription) {
+                            this.message_subscription.unsubscribe();
+                            this.message_subscription = null;
+                        }
+
+                        // Subscribe to all incoming WebSocket messages
+                        this.message_subscription = this.api.onMessage().subscribe((message: any) => {
+                            if (!message) return;
+                            
+                            const msg_type = message.msg_type;
+                            
+                            // Emit critical events to trigger UI updates and bot state transitions
+                            if (['proposal_open_contract', 'balance', 'transaction'].includes(msg_type)) {
+                                console.log(`[APIBase] Received ${msg_type} update`);
+                                globalObserver.emit('bot.contract', message[msg_type]);
+                                
+                                // Also emit specialized events if needed
+                                if (msg_type === 'proposal_open_contract') {
+                                    globalObserver.emit('contract.status', message[msg_type]);
+                                }
+                            }
+                        });
+
                         if (this.onsocketopenBound) {
                             this.api.connection.addEventListener('open', this.onsocketopenBound);
                         }
@@ -254,6 +279,10 @@ class APIBase {
         if (this.api) {
             if (this.onsocketcloseBound) {
                 this.api.connection?.removeEventListener('close', this.onsocketcloseBound);
+            }
+            if (this.message_subscription) {
+                this.message_subscription.unsubscribe();
+                this.message_subscription = null;
             }
             this.api.disconnect();
         }
