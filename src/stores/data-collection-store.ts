@@ -28,6 +28,7 @@ export default class DataCollectionStore {
         });
         this.root_store = root_store;
         this.core = core;
+        /* 
         if (isProduction() || /(.*?)\.binary.sx$/.test(window.location.hostname)) {
             this.root_store = root_store;
 
@@ -42,6 +43,7 @@ export default class DataCollectionStore {
                 }
             );
         }
+        */
     }
 
     // Constants

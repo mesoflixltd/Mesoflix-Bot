@@ -18,7 +18,7 @@ import {
     setIsAuthorizing,
 } from './observables/connection-status-stream';
 import ApiHelpers from './api-helpers';
-import { generateDerivApiInstance, V2GetActiveAccountId } from './appId';
+import { generateDerivApiInstance } from './appId';
 import chart_api from './chart-api';
 
 type CurrentSubscription = {
@@ -188,14 +188,16 @@ class APIBase {
                         }
                     }
 
+                    console.log('[APIBase] Requesting new API instance...');
                     this.api = await generateDerivApiInstance(force_create_connection);
-
-                    // Manually trigger onsocketopen since we just awaited the connection being established
-                    // The event listener below will handle future 'open' events (like after a disconnect)
-                    this.onsocketopen();
+                    console.log('[APIBase] API instance received (state:', this.api?.connection?.readyState, ')');
 
                     this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
                     this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
+
+                    // Manually trigger token exchange and authorization since the connection is already open
+                    // We don't call onsocketopen() to avoid duplicate state updates
+                    await this.handleTokenExchangeIfNeeded();
 
                     // Store the current account ID used for this WebSocket connection
                     const currentClientStore = globalObserver.getState('client.store');
@@ -281,7 +283,7 @@ class APIBase {
         setIsAuthorizing(true);
 
         try {
-            const { balance, error } = await this.api.balance();
+            const { balance, error } = await this.api.send({ balance: 1 });
 
             if (error) {
                 const errorMessage = isBackendError(error)
