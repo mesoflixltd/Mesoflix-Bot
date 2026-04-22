@@ -26,5 +26,6 @@
         "esModuleInterop": true,
         "types": ["jest", "@testing-library/jest-dom", "node"]
     },
-    "include": ["src"]
+    "include": ["src"],
+    "exclude": ["src/utils/tmp", "src/utils/tmp/**/*"]
 }
