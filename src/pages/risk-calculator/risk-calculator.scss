@@ -95,18 +95,27 @@
         -webkit-overflow-scrolling: touch;
     }
 
+    &__native-scroll {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        display: flex;
+        flex-direction: column;
+    }
+
     &__content {
         display: grid;
         grid-template-columns: 1fr 1.5fr;
         gap: 2.4rem;
         padding: 2.4rem;
+        padding-bottom: 6rem;
         overscroll-behavior: contain;
-        -webkit-overflow-scrolling: touch;
 
         @include mobile-or-tablet-screen {
             grid-template-columns: 1fr;
             padding: 1.6rem;
-            padding-bottom: 8rem;
+            padding-bottom: 20rem; // Large padding for "Run" bar clearance
         }
 
         &--mobile-toggle {

@@ -115,6 +115,166 @@ const RiskCalculator = observer(() => {
         if (!isDesktop) setActiveView('journal');
     };
 
+    const renderContent = () => (
+        <div className={classNames('risk-calculator-page__content', { 
+            'risk-calculator-page__content--mobile-toggle': !isDesktop 
+        })}>
+            {/* Left: Calculator */}
+            {(isDesktop || active_view === 'calculator') && (
+                <div className='card'>
+                    <div className='card__title'>
+                        <LabelPairedChartMixedCaptionBoldIcon width='24px' height='24px' fill='var(--brand-red-coral)' />
+                        <Localize i18n_default_text='Stake Calculator' />
+                    </div>
+                    
+                    <div className='calculator-form'>
+                        <InputField
+                            label={localize('Account Balance ($)')}
+                            value={balance}
+                            onChange={(e: any) => setBalance(e.target.value)}
+                            type='number'
+                        />
+                        <div className='calculator-form__row'>
+                            <InputField
+                                label={localize('Risk (%)')}
+                                value={riskPercent}
+                                onChange={(e: any) => setRiskPercent(e.target.value)}
+                                type='number'
+                            />
+                            <InputField
+                                label={localize('Market Payout (%)')}
+                                value={payoutPercent}
+                                onChange={(e: any) => setPayoutPercent(e.target.value)}
+                                type='number'
+                            />
+                        </div>
+
+                        <div className='calculator-form__results'>
+                            <div className='calculator-form__result-item'>
+                                <Text size='sm'><Localize i18n_default_text='Risk Amount' /></Text>
+                                <Text weight='bold'>${calculations.riskAmount}</Text>
+                            </div>
+                            <div className='calculator-form__result-item calculator-form__result-item--highlight'>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <Text size='md' weight='bold' color='prominent'><Localize i18n_default_text='Recommended Stake' /></Text>
+                                    <Text size='2xs' color='less-prominent'><Localize i18n_default_text='Based on your risk %' /></Text>
+                                </div>
+                                <Text size='lg' weight='bold' color='success'>${calculations.recommendedStake}</Text>
+                            </div>
+                            <div className='calculator-form__result-item'>
+                                <Text size='sm'><Localize i18n_default_text='Potential Profit' /></Text>
+                                <Text color='success'>+${calculations.potentialProfit}</Text>
+                            </div>
+                            <div className='calculator-form__result-item'>
+                                <Text size='sm'><Localize i18n_default_text='Total Payout' /></Text>
+                                <Text weight='bold'>${calculations.totalPayout}</Text>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Right: Journal */}
+            {(isDesktop || active_view === 'journal') && (
+                <div className='card journal-section'>
+                    <div className='journal-section__header'>
+                        <div className='card__title'>
+                            <LabelPairedMemoPadCaptionBoldIcon width='24px' height='24px' fill='var(--brand-blue)' />
+                            <Localize i18n_default_text='Trading Journal' />
+                        </div>
+                        <Button 
+                            color='primary' 
+                            onClick={() => setIsFormOpen(!isFormOpen)}
+                        >
+                            {isFormOpen ? localize('Cancel') : (
+                                <>
+                                    <LabelPairedCirclePlusCaptionRegularIcon width='16px' height='16px' fill='white' />
+                                    <span style={{ marginLeft: '8px' }}>{localize('New Entry')}</span>
+                                </>
+                            )}
+                        </Button>
+                    </div>
+
+                    {isFormOpen ? (
+                        <div className='journal-form'>
+                            <InputField
+                                label={localize('Title / Trading Pair')}
+                                value={title}
+                                onChange={(e: any) => setTitle(e.target.value)}
+                            />
+                            <div style={{ display: 'flex', gap: '16px', margin: '8px 0' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input 
+                                        type='radio' 
+                                        name='type' 
+                                        checked={entryType === 'Journal'} 
+                                        onChange={() => setEntryType('Journal')} 
+                                    />
+                                    <Localize i18n_default_text='Journal' />
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input 
+                                        type='radio' 
+                                        name='type' 
+                                        checked={entryType === 'Plan'} 
+                                        onChange={() => setEntryType('Plan')} 
+                                    />
+                                    <Localize i18n_default_text='Trading Plan' />
+                                </label>
+                            </div>
+                            <textarea
+                                placeholder={localize('Write your strategy, rules, or what happened in the trade...')}
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                            />
+                            <Button color='primary' onClick={handleSaveEntry} disabled={!title || !description}>
+                                <Localize i18n_default_text='Save Entry' />
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className='journal-section__list'>
+                            {entries.length === 0 ? (
+                                <div className='journal-section__empty'>
+                                    <LabelPairedCircleExclamationCaptionRegularIcon width='48px' height='48px' />
+                                    <Text weight='bold'><Localize i18n_default_text='Your journal is empty' /></Text>
+                                    <Text size='sm'><Localize i18n_default_text='Start tracking your trades and plans today.' /></Text>
+                                </div>
+                            ) : (
+                                entries.map(entry => (
+                                    <div key={entry.id} className='journal-section__item' onClick={() => handleEditEntry(entry)}>
+                                        <header>
+                                            <h3>{entry.title}</h3>
+                                            <time>{new Date(entry.createdAt).toLocaleDateString()}</time>
+                                        </header>
+                                        <p>{entry.description.length > 200 ? entry.description.substring(0, 200) + '...' : entry.description}</p>
+                                        <footer>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                {entry.type === 'Plan' ? 
+                                                    <LabelPairedCircleCheckCaptionRegularIcon width='16px' height='16px' fill='var(--brand-blue)' /> :
+                                                    <LabelPairedMemoPadCaptionBoldIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
+                                                }
+                                                <Text size='xs' color='less-prominent'>{entry.type}</Text>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                <LabelPairedPenCaptionRegularIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
+                                                <LabelPairedTrashCaptionRegularIcon 
+                                                    width='16px' 
+                                                    height='16px' 
+                                                    fill='var(--status-danger)' 
+                                                    onClick={(e) => handleDeleteEntry(entry.id, e)}
+                                                />
+                                            </div>
+                                        </footer>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className='risk-calculator-page'>
             <div className='risk-calculator-page__header'>
@@ -145,163 +305,15 @@ const RiskCalculator = observer(() => {
             </div>
 
             <div className='risk-calculator-page__scroll-container'>
-                <ThemedScrollbars>
-                    <div className={classNames('risk-calculator-page__content', { 'risk-calculator-page__content--mobile-toggle': !isDesktop })}>
-                        {/* Left: Calculator */}
-                        {(isDesktop || active_view === 'calculator') && (
-                            <div className='card'>
-                                <div className='card__title'>
-                                    <LabelPairedChartMixedCaptionBoldIcon width='24px' height='24px' fill='var(--brand-red-coral)' />
-                                    <Localize i18n_default_text='Stake Calculator' />
-                                </div>
-                                
-                                <div className='calculator-form'>
-                                    <InputField
-                                        label={localize('Account Balance ($)')}
-                                        value={balance}
-                                        onChange={(e: any) => setBalance(e.target.value)}
-                                        type='number'
-                                    />
-                                    <div className='calculator-form__row'>
-                                        <InputField
-                                            label={localize('Risk (%)')}
-                                            value={riskPercent}
-                                            onChange={(e: any) => setRiskPercent(e.target.value)}
-                                            type='number'
-                                        />
-                                        <InputField
-                                            label={localize('Market Payout (%)')}
-                                            value={payoutPercent}
-                                            onChange={(e: any) => setPayoutPercent(e.target.value)}
-                                            type='number'
-                                        />
-                                    </div>
-
-                                    <div className='calculator-form__results'>
-                                        <div className='calculator-form__result-item'>
-                                            <Text size='sm'><Localize i18n_default_text='Risk Amount' /></Text>
-                                            <Text weight='bold'>${calculations.riskAmount}</Text>
-                                        </div>
-                                        <div className='calculator-form__result-item calculator-form__result-item--highlight'>
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <Text size='md' weight='bold' color='prominent'><Localize i18n_default_text='Recommended Stake' /></Text>
-                                                <Text size='xxs' color='less-prominent'><Localize i18n_default_text='Based on your risk %' /></Text>
-                                            </div>
-                                            <Text size='lg' weight='bold' color='profit'>${calculations.recommendedStake}</Text>
-                                        </div>
-                                        <div className='calculator-form__result-item'>
-                                            <Text size='sm'><Localize i18n_default_text='Potential Profit' /></Text>
-                                            <Text color='profit'>+${calculations.potentialProfit}</Text>
-                                        </div>
-                                        <div className='calculator-form__result-item'>
-                                            <Text size='sm'><Localize i18n_default_text='Total Payout' /></Text>
-                                            <Text weight='bold'>${calculations.totalPayout}</Text>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Right: Journal */}
-                        {(isDesktop || active_view === 'journal') && (
-                            <div className='card journal-section'>
-                                <div className='journal-section__header'>
-                                    <div className='card__title'>
-                                        <LabelPairedMemoPadCaptionBoldIcon width='24px' height='24px' fill='var(--brand-blue)' />
-                                        <Localize i18n_default_text='Trading Journal' />
-                                    </div>
-                                    <Button 
-                                        color='primary' 
-                                        onClick={() => setIsFormOpen(!isFormOpen)}
-                                    >
-                                        {isFormOpen ? localize('Cancel') : (
-                                            <>
-                                                <LabelPairedCirclePlusCaptionRegularIcon width='16px' height='16px' fill='white' />
-                                                <span style={{ marginLeft: '8px' }}>{localize('New Entry')}</span>
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-
-                                {isFormOpen ? (
-                                    <div className='journal-form'>
-                                        <InputField
-                                            label={localize('Title / Trading Pair')}
-                                            value={title}
-                                            onChange={(e: any) => setTitle(e.target.value)}
-                                        />
-                                        <div style={{ display: 'flex', gap: '16px', margin: '8px 0' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                <input 
-                                                    type='radio' 
-                                                    name='type' 
-                                                    checked={entryType === 'Journal'} 
-                                                    onChange={() => setEntryType('Journal')} 
-                                                />
-                                                <Localize i18n_default_text='Journal' />
-                                            </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                <input 
-                                                    type='radio' 
-                                                    name='type' 
-                                                    checked={entryType === 'Plan'} 
-                                                    onChange={() => setEntryType('Plan')} 
-                                                />
-                                                <Localize i18n_default_text='Trading Plan' />
-                                            </label>
-                                        </div>
-                                        <textarea
-                                            placeholder={localize('Write your strategy, rules, or what happened in the trade...')}
-                                            value={description}
-                                            onChange={(e) => setDescription(e.target.value)}
-                                        />
-                                        <Button color='primary' onClick={handleSaveEntry} disabled={!title || !description}>
-                                            <Localize i18n_default_text='Save Entry' />
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className='journal-section__list'>
-                                        {entries.length === 0 ? (
-                                            <div className='journal-section__empty'>
-                                                <LabelPairedCircleExclamationCaptionRegularIcon width='48px' height='48px' />
-                                                <Text weight='bold'><Localize i18n_default_text='Your journal is empty' /></Text>
-                                                <Text size='sm'><Localize i18n_default_text='Start tracking your trades and plans today.' /></Text>
-                                            </div>
-                                        ) : (
-                                            entries.map(entry => (
-                                                <div key={entry.id} className='journal-section__item' onClick={() => handleEditEntry(entry)}>
-                                                    <header>
-                                                        <h3>{entry.title}</h3>
-                                                        <time>{new Date(entry.createdAt).toLocaleDateString()}</time>
-                                                    </header>
-                                                    <p>{entry.description.length > 200 ? entry.description.substring(0, 200) + '...' : entry.description}</p>
-                                                    <footer>
-                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                            {entry.type === 'Plan' ? 
-                                                                <LabelPairedCircleCheckCaptionRegularIcon width='16px' height='16px' fill='var(--brand-blue)' /> :
-                                                                <LabelPairedMemoPadCaptionBoldIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
-                                                            }
-                                                            <Text size='xs' color='less-prominent'>{entry.type}</Text>
-                                                        </div>
-                                                        <div style={{ display: 'flex', gap: '12px' }}>
-                                                            <LabelPairedPenCaptionRegularIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
-                                                            <LabelPairedTrashCaptionRegularIcon 
-                                                                width='16px' 
-                                                                height='16px' 
-                                                                fill='var(--status-danger)' 
-                                                                onClick={(e) => handleDeleteEntry(entry.id, e)}
-                                                            />
-                                                        </div>
-                                                    </footer>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                {isDesktop ? (
+                    <ThemedScrollbars>
+                        {renderContent()}
+                    </ThemedScrollbars>
+                ) : (
+                    <div className='risk-calculator-page__native-scroll'>
+                        {renderContent()}
                     </div>
-                </ThemedScrollbars>
+                )}
             </div>
         </div>
     );
