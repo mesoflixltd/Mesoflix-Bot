@@ -211,22 +211,11 @@ class APIBase {
                             this.message_subscription = null;
                         }
 
-                        // Subscribe to all incoming WebSocket messages
+                        // Subscribe to all incoming WebSocket messages (fallback for unsolicited messages)
                         this.message_subscription = this.api.onMessage().subscribe((message: any) => {
                             if (!message) return;
-                            
                             const msg_type = message.msg_type;
-                            
-                            // Emit critical events to trigger UI updates and bot state transitions
-                            if (['proposal_open_contract', 'balance', 'transaction'].includes(msg_type)) {
-                                console.log(`[APIBase] Received ${msg_type} update`);
-                                globalObserver.emit('bot.contract', message[msg_type]);
-                                
-                                // Also emit specialized events if needed
-                                if (msg_type === 'proposal_open_contract') {
-                                    globalObserver.emit('contract.status', message[msg_type]);
-                                }
-                            }
+                            console.log(`[APIBase] Received unsolicited ${msg_type}`);
                         });
 
                         if (this.onsocketopenBound) {
@@ -447,15 +436,34 @@ class APIBase {
         const subscribeToStream = async (streamName: string) => {
             try {
                 await doUntilDone(
-                    () => {
+                    async () => {
                         console.log(`[APIBase] Subscribing to ${streamName}...`);
                         const subscription = this.api?.send({
                             [streamName]: 1,
                             subscribe: 1,
                         });
 
-                        if (subscription) {
-                            this.current_auth_subscriptions.push(subscription);
+                        if (subscription && typeof subscription.subscribe === 'function') {
+                            const sub = subscription.subscribe((message: any) => {
+                                if (!message || !message[streamName]) return;
+                                
+                                const data = message[streamName];
+                                console.log(`[APIBase] Received ${streamName} update`);
+
+                                // Emit 'bot.contract' for all streams as general data update
+                                globalObserver.emit('bot.contract', data);
+
+                                // Special handling for contract status transitions
+                                if (streamName === 'proposal_open_contract') {
+                                    const is_sold = !!data.is_sold;
+                                    globalObserver.emit('contract.status', {
+                                        id: is_sold ? 'contract.sold' : 'contract.purchase_received',
+                                        contract: data,
+                                    });
+                                }
+                            });
+                            
+                            this.current_auth_subscriptions.push(sub);
                             console.log(`[APIBase] Subscription to ${streamName} active`);
                         }
                         return subscription;
