@@ -113,15 +113,22 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
             const responseData = await reqResponse.json();
 
-            if (!reqResponse.ok || responseData.error) {
-                throw new Error(responseData.error?.message || responseData.error_description || 'Unable to reset demo balance');
+            if (!reqResponse.ok || responseData.errors) {
+                const errorObj = responseData.errors?.[0];
+                const errorMessage = errorObj?.message || responseData.error_description || 'Unable to reset demo balance';
+                console.error('[AccountSwitcher] Reset response error:', responseData);
+                throw new Error(errorMessage);
             }
 
             // Immediately send a balance request to prompt a UI update
             await api_base.api?.send({ balance: 1 });
             client?.checkAndRegenerateWebSocket();
-        } catch (error) {
+            
+            // Show success
+            alert('Demo balance successfully reset to 10,000 USD');
+        } catch (error: any) {
             console.error('[AccountSwitcher] Reset demo balance failed:', error);
+            alert(`Demo reset failed: ${error?.message || 'Unknown error. Check console.'}`);
         } finally {
             setIsResettingBalance(false);
         }
