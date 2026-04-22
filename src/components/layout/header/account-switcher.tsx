@@ -12,14 +12,24 @@ import { TAccountSwitcher } from './common/types';
 import AccountInfoWrapper from './account-info-wrapper';
 import './account-switcher.scss';
 
+type TAccountGroup = 'real' | 'demo';
+
 const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState<TAccountGroup>('real');
+    const [isResettingBalance, setIsResettingBalance] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const { accountList, activeLoginid } = useApiBase();
     const { client, run_panel } = useStore() ?? {};
 
     const is_bot_running = run_panel?.is_running || api_base.is_running;
     const isSingleAccount = !accountList || accountList.length <= 1;
+
+    useEffect(() => {
+        if (activeAccount) {
+            setSelectedGroup(activeAccount.isVirtual ? 'demo' : 'real');
+        }
+    }, [activeAccount]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -64,6 +74,53 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             }))
             .sort((a, b) => (a.isActive ? -1 : b.isActive ? 1 : 0));
     }, [accountList, activeLoginid]);
+
+    const groupedAccounts = useMemo(
+        () => ({
+            demo: formattedAccounts.filter(account => account.isVirtual),
+            real: formattedAccounts.filter(account => !account.isVirtual),
+        }),
+        [formattedAccounts]
+    );
+
+    const visibleAccounts = groupedAccounts[selectedGroup];
+
+    const handleResetDemoBalance = useCallback(async () => {
+        if (!activeLoginid) return;
+
+        try {
+            setIsResettingBalance(true);
+            const account_tokens = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
+            const auth_token = account_tokens?.[activeLoginid];
+            if (!auth_token) throw new Error('Missing auth token for active account');
+
+            const app_id = process.env.APP_ID || '36300';
+            const response = await fetch(
+                `https://api.derivws.com/trading/v1/options/accounts/${activeLoginid}/reset-demo-balance`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${auth_token}`,
+                        'Content-Type': 'application/json',
+                        'Deriv-App-ID': String(app_id),
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                const error_payload = await response.json().catch(() => ({}));
+                const error_message = error_payload?.errors?.[0]?.message || 'Unable to reset demo balance';
+                throw new Error(error_message);
+            }
+
+            await api_base.api?.send({ balance: 1 });
+            client?.checkAndRegenerateWebSocket();
+        } catch (error) {
+            console.error('[AccountSwitcher] Reset demo balance failed:', error);
+        } finally {
+            setIsResettingBalance(false);
+        }
+    }, [activeLoginid, client]);
 
     if (!activeAccount) return null;
 
@@ -141,7 +198,28 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             </AccountInfoWrapper>
             {isOpen && (
                 <div className='acc-dropdown' role='listbox'>
-                    {formattedAccounts.map(account => (
+                    <div className='acc-dropdown__group-tabs'>
+                        <button
+                            type='button'
+                            className={classNames('acc-dropdown__group-tab', {
+                                'acc-dropdown__group-tab--active': selectedGroup === 'real',
+                            })}
+                            onClick={() => setSelectedGroup('real')}
+                        >
+                            <Localize i18n_default_text='Real' />
+                        </button>
+                        <button
+                            type='button'
+                            className={classNames('acc-dropdown__group-tab', {
+                                'acc-dropdown__group-tab--active': selectedGroup === 'demo',
+                            })}
+                            onClick={() => setSelectedGroup('demo')}
+                        >
+                            <Localize i18n_default_text='Demo' />
+                        </button>
+                    </div>
+
+                    {visibleAccounts.map(account => (
                         <div
                             key={account.loginid}
                             role='option'
@@ -180,6 +258,21 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                             </Text>
                         </div>
                     ))}
+
+                    {selectedGroup === 'demo' && (
+                        <div className='acc-dropdown__reset'>
+                            <button
+                                type='button'
+                                className='acc-dropdown__reset-button'
+                                disabled={isResettingBalance || !isDemoAccount(activeLoginid ?? '')}
+                                onClick={handleResetDemoBalance}
+                            >
+                                <Localize
+                                    i18n_default_text={isResettingBalance ? 'Resetting...' : 'Reset demo balance'}
+                                />
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

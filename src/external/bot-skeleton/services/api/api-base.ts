@@ -11,6 +11,7 @@ import { observer as globalObserver } from '../../utils/observer';
 import { doUntilDone, socket_state } from '../tradeEngine/utils/helpers';
 import {
     CONNECTION_STATUS,
+    authData$,
     setAccountList,
     setAuthData,
     setConnectionStatus,
@@ -66,6 +67,7 @@ class APIBase {
     reconnection_attempts: number = 0;
     is_initializing = false;
     private init_promise: Promise<void> | null = null;
+    private queued_force_reinit = false;
     private message_subscription: { unsubscribe: () => void } | null = null;
     private last_buy_data: any = null;
 
@@ -73,6 +75,7 @@ class APIBase {
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000;
     private readonly ENRICHMENT_TIMEOUT_MS = 10000;
     private readonly MAX_RECONNECTION_ATTEMPTS = 5;
+    private readonly ACTIVE_SYMBOLS_MAX_RETRIES = 3;
 
     // Fixed persistence of bound handlers to ensure removeEventListener works correctly
     private onsocketopenBound: (() => void) | null = null;
@@ -81,6 +84,15 @@ class APIBase {
     constructor() {
         this.onsocketopenBound = this.onsocketopen.bind(this);
         this.onsocketcloseBound = this.onsocketclose.bind(this);
+    }
+
+    private isContractClosed(contract: Record<string, any> = {}) {
+        return Boolean(
+            contract.is_sold ||
+                contract.is_expired ||
+                contract.is_settleable ||
+                (contract.status && contract.status !== 'open')
+        );
     }
 
     unsubscribeAllSubscriptions = () => {
@@ -159,7 +171,8 @@ class APIBase {
     }
 
     async init(force_create_connection = false) {
-        if (this.is_initializing && !force_create_connection) {
+        if (this.is_initializing) {
+            if (force_create_connection) this.queued_force_reinit = true;
             return this.init_promise;
         }
 
@@ -204,6 +217,10 @@ class APIBase {
                     // Critical: Reset authorization state for the NEW socket instance
                     this.is_authorized = false;
                     this.token = '';
+                    this.has_active_symbols = false;
+                    this.active_symbols = [];
+                    this.active_symbols_promise = null;
+                    this.last_buy_data = null;
 
                     if (this.api?.connection) {
                         // Cleanup previous message subscription
@@ -233,12 +250,52 @@ class APIBase {
                                 return;
                             }
 
+                            if (msg_type === 'balance') {
+                                const current_auth_data = authData$.value;
+                                const current_account_list = current_auth_data?.account_list || [];
+                                const mapped_account_list = current_account_list.map((account: Record<string, any>) =>
+                                    account.loginid === data.loginid
+                                        ? { ...account, balance: data.balance, currency: data.currency || account.currency }
+                                        : account
+                                );
+                                const account_exists = mapped_account_list.some(
+                                    (account: Record<string, any>) => account.loginid === data.loginid
+                                );
+                                const next_account_list = account_exists
+                                    ? mapped_account_list
+                                    : [
+                                          ...mapped_account_list,
+                                          {
+                                              loginid: data.loginid,
+                                              balance: data.balance,
+                                              currency: data.currency || 'USD',
+                                              is_virtual: getAccountType(data.loginid) === 'real' ? 0 : 1,
+                                          },
+                                      ];
+
+                                setAccountList(next_account_list);
+                                setAuthData({
+                                    ...(current_auth_data || {}),
+                                    balance: data.balance,
+                                    currency: data.currency,
+                                    loginid: data.loginid,
+                                    account_list: next_account_list,
+                                });
+
+                                const currentClientStore = globalObserver.getState('client.store');
+                                if (currentClientStore && data.loginid === currentClientStore.loginid) {
+                                    currentClientStore.setBalance(String(data.balance));
+                                    if (data.currency) currentClientStore.setCurrency(data.currency);
+                                }
+                                return;
+                            }
+
                             // Only emit specialized events on their dedicated channels.
                             // Do NOT send everything through bot.contract as it crashes the UI.
                             if (msg_type === 'proposal_open_contract') {
                                 globalObserver.emit('bot.contract', data);
                                 
-                                const is_sold = !!data.is_sold;
+                                const is_sold = this.isContractClosed(data);
                                 globalObserver.emit('contract.status', {
                                     id: is_sold ? 'contract.sold' : 'contract.purchase_received',
                                     contract: data,
@@ -264,8 +321,9 @@ class APIBase {
 
                 const hasAccountID = V2GetActiveAccountId();
 
-                if (!this.has_active_symbols && !hasAccountID) {
-                    this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
+                if (!hasAccountID) {
+                    this.active_symbols_promise = null;
+                    this.has_active_symbols = false;
                 }
 
                 this.initEventListeners();
@@ -276,9 +334,14 @@ class APIBase {
                 chart_api.init(force_create_connection);
             } catch (error) {
                 console.error('[APIBase] Initialization failed:', error);
-                throw error;
+                globalObserver.emit('Error', error);
+                setConnectionStatus(CONNECTION_STATUS.CLOSED);
             } finally {
                 this.is_initializing = false;
+                if (this.queued_force_reinit) {
+                    this.queued_force_reinit = false;
+                    void this.init(true);
+                }
             }
         })();
 
@@ -444,9 +507,7 @@ class APIBase {
                 localStorage.setItem('active_loginid', balance.loginid);
             }
 
-            if (this.has_active_symbols) {
-                this.toggleRunButton(false);
-            } else {
+            if (!this.has_active_symbols) {
                 this.active_symbols_promise = this.getActiveSymbols();
             }
             this.subscribe();
@@ -489,43 +550,66 @@ class APIBase {
             throw new Error('API connection not available');
         }
 
-        try {
-            const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
-            );
-
-            const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
-            const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
-            const { active_symbols = [], error = {} } = apiResult as any;
-
-            if (error && Object.keys(error).length > 0) {
-                throw new Error(`Active symbols API error: ${error.message || 'Unknown error'}`);
-            }
-
-            this.has_active_symbols = true;
-
+        let last_error: unknown = null;
+        for (let attempt = 1; attempt <= this.ACTIVE_SYMBOLS_MAX_RETRIES; attempt++) {
             try {
-                const enrichmentTimeout = new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('Enrichment timeout')), this.ENRICHMENT_TIMEOUT_MS)
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
                 );
 
-                const enrichmentPromise = activeSymbolsProcessorService.processActiveSymbols(active_symbols);
-                const processedResult = await Promise.race([enrichmentPromise, enrichmentTimeout]);
+                const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
+                const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
+                const { active_symbols = [], error = {} } = apiResult as any;
 
-                this.active_symbols = processedResult.enrichedSymbols;
-                this.pip_sizes = processedResult.pipSizes;
-            } catch (enrichmentError) {
-                console.warn('Symbol enrichment failed:', enrichmentError);
-                this.active_symbols = active_symbols;
+                if (error && Object.keys(error).length > 0) {
+                    throw new Error(`Active symbols API error: ${error.message || 'Unknown error'}`);
+                }
+
+                if (!Array.isArray(active_symbols) || active_symbols.length === 0) {
+                    throw new Error('Active symbols API returned empty list');
+                }
+
+                this.has_active_symbols = true;
+
+                try {
+                    const enrichmentTimeout = new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('Enrichment timeout')), this.ENRICHMENT_TIMEOUT_MS)
+                    );
+
+                    const enrichmentPromise = activeSymbolsProcessorService.processActiveSymbols(active_symbols);
+                    const processedResult = await Promise.race([enrichmentPromise, enrichmentTimeout]);
+
+                    this.active_symbols = processedResult.enrichedSymbols;
+                    this.pip_sizes = processedResult.pipSizes;
+                } catch (enrichmentError) {
+                    console.warn('Symbol enrichment failed:', enrichmentError);
+                    this.active_symbols = active_symbols;
+                    this.pip_sizes = {};
+                }
+
+                this.toggleRunButton(false);
+                return this.active_symbols;
+            } catch (error) {
+                last_error = error;
+                this.has_active_symbols = false;
+                this.active_symbols = [];
                 this.pip_sizes = {};
-            }
+                this.active_symbols_promise = null;
 
-            this.toggleRunButton(false);
-            return this.active_symbols;
-        } catch (error) {
-            console.error('Failed to fetch and process active symbols:', error);
-            throw error;
+                if (attempt < this.ACTIVE_SYMBOLS_MAX_RETRIES) {
+                    const retry_delay = 500 * attempt;
+                    console.warn(
+                        `[APIBase] Active symbols fetch failed (attempt ${attempt}/${this.ACTIVE_SYMBOLS_MAX_RETRIES}), retrying in ${retry_delay}ms:`,
+                        error
+                    );
+                    await new Promise(resolve => setTimeout(resolve, retry_delay));
+                    continue;
+                }
+            }
         }
+
+        console.error('Failed to fetch and process active symbols:', last_error);
+        throw last_error;
     };
 
     toggleRunButton = (toggle: boolean) => {

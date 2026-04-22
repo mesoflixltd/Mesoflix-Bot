@@ -8,6 +8,7 @@ import { useApiBase } from '@/hooks/useApiBase';
 import { useLogout } from '@/hooks/useLogout';
 import { useStore } from '@/hooks/useStore';
 import { navigateToTransfer } from '@/utils/transfer-utils';
+import { BOT_VERSION_CONFIG } from '@/constants/bot-version';
 import { Localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { AppLogo } from '../app-logo';
@@ -17,6 +18,10 @@ import MobileMenu from './mobile-menu';
 import './header.scss';
 
 const AppHeader = observer(() => {
+    const buildVersion =
+        process.env.BUILD_VERSION ||
+        process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+        `v${BOT_VERSION_CONFIG.REQUIRED_VERSION}`;
     const { isDesktop } = useDevice();
     const { isAuthorizing, activeLoginid, setIsAuthorizing, authData } = useApiBase();
     const { client } = useStore() ?? {};
@@ -236,6 +241,9 @@ const AppHeader = observer(() => {
                 <Wrapper variant='left'>
                     <MobileMenu onLogout={handleLogout} />
                     <AppLogo />
+                    <span className='app-header__build-version' title='Build version'>
+                        {buildVersion}
+                    </span>
                     {isDesktop ? <MenuItems /> : renderAccountSection('left')}
                 </Wrapper>
                 <Wrapper variant='right'>{renderAccountSection('right')}</Wrapper>

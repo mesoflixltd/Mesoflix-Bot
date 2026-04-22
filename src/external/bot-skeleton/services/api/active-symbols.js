@@ -45,7 +45,7 @@ export default class ActiveSymbols {
     async retrieveActiveSymbols(is_forced_update = false) {
         await this.trading_times.initialise();
 
-        if (!is_forced_update && this.is_initialised) {
+        if (!is_forced_update && this.is_initialised && !this.has_initialization_error) {
             await this.init_promise;
             return this.active_symbols;
         }
@@ -59,8 +59,14 @@ export default class ActiveSymbols {
                 api_base.active_symbols_promise = api_base.getActiveSymbols();
             }
             // Wait for the promise and use its resolved value
-            const symbols = await api_base.active_symbols_promise;
-            this.active_symbols = symbols ?? api_base?.active_symbols ?? [];
+            try {
+                const symbols = await api_base.active_symbols_promise;
+                this.active_symbols = symbols ?? api_base?.active_symbols ?? [];
+            } catch (error) {
+                console.warn('Active symbols promise failed, forcing refetch...', error);
+                this.active_symbols = [];
+                api_base.active_symbols_promise = null;
+            }
         }
 
         // If still no symbols after waiting, try one more time with a fresh fetch
@@ -74,12 +80,16 @@ export default class ActiveSymbols {
                 if (!this.active_symbols || this.active_symbols.length === 0) {
                     this.has_initialization_error = true;
                     console.error('Failed to fetch active symbols: No symbols returned after retry');
+                } else {
+                    this.has_initialization_error = false;
                 }
             } catch (error) {
                 console.error('Failed to fetch active symbols:', error);
                 this.active_symbols = [];
                 this.has_initialization_error = true;
             }
+        } else {
+            this.has_initialization_error = false;
         }
 
         this.is_initialised = true;
@@ -87,7 +97,9 @@ export default class ActiveSymbols {
 
         this.trading_times.onMarketOpenCloseChanged = changes => {
             Object.keys(changes).forEach(symbol_name => {
-                const symbol_obj = this.active_symbols[symbol_name];
+                const symbol_obj = this.active_symbols.find(
+                    symbol => symbol.symbol === symbol_name || symbol.underlying_symbol === symbol_name
+                );
 
                 if (symbol_obj) {
                     symbol_obj.exchange_is_open = changes[symbol_name];

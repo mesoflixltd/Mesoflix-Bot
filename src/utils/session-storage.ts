@@ -12,7 +12,9 @@ export const getStoredItemsByUser = (storage_key: string, loginid?: string, defa
 export const getStoredItemsByKey = (storage_key: string, default_value: any) => {
     try {
         const session_storage_item = sessionStorage.getItem(storage_key);
+        if (!session_storage_item) return default_value;
         const decompressed_item = LZString.decompress(session_storage_item);
+        if (!decompressed_item) return default_value;
         const stored_items = JSON.parse(decompressed_item);
 
         if (stored_items) {

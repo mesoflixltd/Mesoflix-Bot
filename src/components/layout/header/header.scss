@@ -2,6 +2,23 @@
 @use 'components/shared/styles/mixins' as *;
 
 .app-header {
+    &__build-version {
+        margin-left: 0.8rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 0.6rem;
+        background: var(--general-section-1);
+        color: var(--text-less-prominent);
+        font-size: 1rem;
+        line-height: 1.2;
+        font-weight: 700;
+
+        @include mobile-screen {
+            font-size: 0.9rem;
+            margin-left: 0.4rem;
+            padding: 0.2rem 0.5rem;
+        }
+    }
+
     &__account-settings {
         padding-inline-end: 1.2rem;
         border-inline-end: 0.1rem solid var(--general-section-1);

@@ -19,10 +19,13 @@
         "allowJs": true,
         "baseUrl": "./src",
         "paths": {
-            "@/*": ["./*"]
+            "@/*": ["./*"],
+            "Types": ["./types"],
+            "Stores/*": ["./stores/*"]
         },
         "esModuleInterop": true,
         "types": ["jest", "@testing-library/jest-dom", "node"]
     },
-    "include": ["src"]
+    "include": ["src"],
+    "exclude": ["src/utils/tmp", "src/utils/tmp/**/*"]
 }

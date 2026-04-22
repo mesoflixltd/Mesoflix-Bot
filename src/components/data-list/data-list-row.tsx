@@ -23,7 +23,7 @@ export type TRowRenderer = (params: Partial<TMobileRowRenderer>) => React.ReactN
 
 type TDataListRow = {
     action_desc?: {
-        component: React.ReactNode;
+        component?: React.ReactNode;
     };
     destination_link?: string;
     row_gap?: number;
@@ -74,11 +74,9 @@ const DataListRow = ({
                 <NavLink
                     className='data-list__item--wrapper'
                     id={`dt_reports_contract_${row_key}`}
-                    to={{
-                        pathname: destination_link,
-                        state: {
-                            from_table_row: true,
-                        },
+                    to={destination_link}
+                    state={{
+                        from_table_row: true,
                     }}
                 >
                     <div className='data-list__item'>{rowRenderer({ measure, ...other_props })}</div>

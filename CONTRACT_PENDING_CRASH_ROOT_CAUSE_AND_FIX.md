@@ -18,7 +18,7 @@ When the transaction stream/UI crashes during active updates:
 - the run panel and transaction timeline can stop reflecting subsequent `proposal_open_contract` updates,
 - so the contract may appear stuck as pending even when backend events continue.
 
-## Implemented fix
+## Implemented fix (v1)
 ### 1) Stop polluting `bot.contract` with non-contract data
 In `src/external/bot-skeleton/services/api/api-base.ts`:
 - Keep `bot.contract` emission only for `proposal_open_contract`.
@@ -59,3 +59,68 @@ Checked branch and commit history for an existing fix specifically addressing th
 
 ## Additional hardening recommendation
 If desired, introduce strict runtime type guards for observer channels (e.g., `isProposalOpenContractPayload`) so contracts, balances, and transactions are routed by schema rather than `msg_type` alone.
+
+
+---
+
+## Follow-up deep-dive (v2): why contracts still appeared stuck + balance looked stale
+
+After the first fix, two additional root causes remained:
+
+1. **Contract close detection was too narrow in API event routing**
+   - The status bridge only treated `proposal_open_contract.is_sold` as a closed signal.
+   - Many closed contracts are represented by other fields (`status !== 'open'`, `is_expired`, `is_settleable`).
+   - Result: UI state machine could remain in purchase/pending path and block continuous trading.
+
+2. **Balance subscription data was not being applied to client state**
+   - `balance` stream was subscribed, but updates were not written back into app state.
+   - Result: UI showed decreasing/old balances and appeared not to refresh after winning contracts.
+
+3. **Active-symbol cache needed explicit reset on fresh socket instances**
+   - On new/recreated connections, stale symbol flags/promises can prevent a clean re-bootstrap.
+   - Result: repeated `No symbols found, attempting fresh fetch...` loops and bot waiting on market discovery.
+
+## Implemented fix (v2)
+
+### A) Correctly detect closed contracts from proposal updates
+- Added robust close detection using:
+  - `is_sold`
+  - `is_expired`
+  - `is_settleable`
+  - `status && status !== 'open'`
+- This ensures `contract.status` emits `contract.sold` whenever the contract is actually closed.
+
+### B) Wire live balance stream updates into app state
+- On `msg_type === 'balance'`:
+  - update observable auth/account list state (`setAccountList`, `setAuthData`)
+  - update active `client.store` balance/currency (`setBalance`, `setCurrency`)
+- This keeps balance in sync in realtime after both wins and losses.
+
+### C) Reset symbol state on new socket instances
+- On connection recreation:
+  - clear `has_active_symbols`
+  - clear cached `active_symbols`
+  - clear `active_symbols_promise`
+- This forces clean symbol re-fetch after reconnect/account regeneration and avoids stale cache loops.
+
+### D) Prevent concurrent socket init races and OAuth hard-fail on transient WS errors
+- Serialize `APIBase.init()` calls (including forced reconnect calls) so only one init pipeline can run at a time.
+- Queue force-reinit requests instead of opening competing sockets in parallel.
+- Avoid rethrowing raw WebSocket `error` events from `init()`; emit error + closed status and let reconnect logic recover.
+- This prevents:
+  - double `Requesting new API instance...` races,
+  - singleton clears while another socket is mid-handshake,
+  - OAuth/account-fetch flows failing hard due to transient WS errors.
+
+### E) Fix market-selection connection path in Active Symbols cache
+- `ActiveSymbols.retrieveActiveSymbols()` now bypasses stale cache when previous initialization failed.
+- Promise failures from `api_base.active_symbols_promise` are handled and retried with forced refetch.
+- `has_initialization_error` now resets correctly after successful fetches.
+- Market open/close updates now map by symbol values instead of array index lookup, so selected market/symbol state stays aligned with incoming trading-time updates.
+
+### F) Handle trading-session backend limits as unrecoverable bot errors
+- Added backend limit codes to `unrecoverable_errors`:
+  - `CompanyWideLimitExceeded`
+  - `DailyProfitLimitExceeded`
+  - `ClientContractProfitLimitExceeded`
+- This prevents endless retry loops when the backend explicitly blocks further trades for the current session, and forces a clean bot stop with an actionable error.
