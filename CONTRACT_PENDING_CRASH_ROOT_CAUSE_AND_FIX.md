@@ -116,3 +116,10 @@ After the first fix, two additional root causes remained:
 - Promise failures from `api_base.active_symbols_promise` are handled and retried with forced refetch.
 - `has_initialization_error` now resets correctly after successful fetches.
 - Market open/close updates now map by symbol values instead of array index lookup, so selected market/symbol state stays aligned with incoming trading-time updates.
+
+### F) Handle trading-session backend limits as unrecoverable bot errors
+- Added backend limit codes to `unrecoverable_errors`:
+  - `CompanyWideLimitExceeded`
+  - `DailyProfitLimitExceeded`
+  - `ClientContractProfitLimitExceeded`
+- This prevents endless retry loops when the backend explicitly blocks further trades for the current session, and forces a clean bot stop with an actionable error.
