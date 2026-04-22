@@ -3,11 +3,16 @@
 
 .freebots-page {
     height: 100%;
+    max-height: calc(100vh - 12rem); // Ensure it doesn't push the parent
     background: var(--general-main-1);
     color: var(--text-general);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+
+    @include mobile-or-tablet-screen {
+        max-height: calc(100vh - 6.4rem);
+    }
 
     &__header {
         padding: 3.2rem 4rem;
@@ -112,6 +117,12 @@
     border: 1px solid var(--general-section-2);
     border-radius: 2.4rem;
     padding: 2.4rem;
+
+    @include mobile-or-tablet-screen {
+        padding: 1.6rem;
+        border-radius: 1.6rem;
+    }
+
     display: flex;
     flex-direction: column;
     gap: 2rem;
@@ -186,6 +197,10 @@
         color: var(--text-prominent);
         margin-bottom: 0.4rem;
         text-transform: capitalize;
+
+        @include mobile-or-tablet-screen {
+            font-size: 1.5rem;
+        }
     }
 
     &__description {
@@ -197,6 +212,11 @@
         -webkit-box-orient: vertical;
         line-clamp: 2;
         overflow: hidden;
+
+        @include mobile-or-tablet-screen {
+            font-size: 1.2rem;
+            height: 3.6rem;
+        }
     }
 
     &__stats {
