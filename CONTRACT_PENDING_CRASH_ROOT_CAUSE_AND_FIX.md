@@ -110,3 +110,9 @@ After the first fix, two additional root causes remained:
   - double `Requesting new API instance...` races,
   - singleton clears while another socket is mid-handshake,
   - OAuth/account-fetch flows failing hard due to transient WS errors.
+
+### E) Fix market-selection connection path in Active Symbols cache
+- `ActiveSymbols.retrieveActiveSymbols()` now bypasses stale cache when previous initialization failed.
+- Promise failures from `api_base.active_symbols_promise` are handled and retried with forced refetch.
+- `has_initialization_error` now resets correctly after successful fetches.
+- Market open/close updates now map by symbol values instead of array index lookup, so selected market/symbol state stays aligned with incoming trading-time updates.
