@@ -313,8 +313,11 @@ class APIBase {
             const authResponse = await this.api.authorize(token);
             
             if (authResponse.error) {
+                console.error('[APIBase] Authorization failed:', authResponse.error);
                 throw authResponse.error;
             }
+
+            console.log('[APIBase] Authorization successful for:', authResponse.authorize.loginid);
 
             const { balance, error } = await this.api.send({ balance: 1 });
 
@@ -416,6 +419,7 @@ class APIBase {
             try {
                 await doUntilDone(
                     () => {
+                        console.log(`[APIBase] Subscribing to ${streamName}...`);
                         const subscription = this.api?.send({
                             [streamName]: 1,
                             subscribe: 1,
@@ -423,6 +427,7 @@ class APIBase {
 
                         if (subscription) {
                             this.current_auth_subscriptions.push(subscription);
+                            console.log(`[APIBase] Subscription to ${streamName} active`);
                         }
                         return subscription;
                     },
