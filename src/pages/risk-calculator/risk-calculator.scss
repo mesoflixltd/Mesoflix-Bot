@@ -26,17 +26,26 @@
         }
     }
 
-    &__content {
+    &__scroll-container {
         flex: 1;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__content {
         display: grid;
         grid-template-columns: 1fr 1.5fr;
         gap: 2.4rem;
         padding: 2.4rem;
-        overflow: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
 
         @include mobile-or-tablet-screen {
             grid-template-columns: 1fr;
             padding: 1.6rem;
+            padding-bottom: 8rem; // Extra space for mobile footer/navigation
         }
     }
 

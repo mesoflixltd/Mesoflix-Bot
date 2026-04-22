@@ -291,9 +291,11 @@ const AppWrapper = observer(() => {
             setActiveTour('');
         }
 
-        // Prevent scrolling when tutorial tab is active (only on mobile)
+        // Prevent scrolling when specific tabs are active (only on mobile)
         const mainElement = document.querySelector('.main__container');
-        if (active_tab === DBOT_TABS.TUTORIAL && !isDesktop) {
+        const scrollLockedTabs = [DBOT_TABS.TUTORIAL, DBOT_TABS.RISK_CALCULATOR];
+        
+        if (scrollLockedTabs.includes(active_tab) && !isDesktop) {
             document.body.style.overflow = 'hidden';
             if (mainElement instanceof HTMLElement) {
                 mainElement.classList.add('no-scroll');

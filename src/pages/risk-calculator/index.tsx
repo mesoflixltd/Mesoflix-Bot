@@ -30,8 +30,7 @@ const RiskCalculator = observer(() => {
     // Calculator State
     const [balance, setBalance] = useState<string>('1000');
     const [riskPercent, setRiskPercent] = useState<string>('1');
-    const [stopLoss, setStopLoss] = useState<string>('50');
-    const [pipValue, setPipValue] = useState<string>('10'); // Standard for 1 lot on most pairs
+    const [payoutPercent, setPayoutPercent] = useState<string>('95');
 
     // Journal State
     const [entries, setEntries] = useState<TJournalEntry[]>([]);
@@ -62,19 +61,19 @@ const RiskCalculator = observer(() => {
     const calculations = useMemo(() => {
         const b = parseFloat(balance) || 0;
         const r = parseFloat(riskPercent) || 0;
-        const sl = parseFloat(stopLoss) || 0;
-        const pv = parseFloat(pipValue) || 0;
+        const p = parseFloat(payoutPercent) || 0;
 
         const riskAmount = b * (r / 100);
-        const lotSize = sl > 0 && pv > 0 ? riskAmount / (sl * pv) : 0;
+        const stake = riskAmount; // In options, your stake is your risk
+        const profit = stake * (p / 100);
 
         return {
             riskAmount: riskAmount.toFixed(2),
-            lotSize: lotSize.toFixed(2),
-            reward1_2: (riskAmount * 2).toFixed(2),
-            reward1_3: (riskAmount * 3).toFixed(2),
+            recommendedStake: stake.toFixed(2),
+            potentialProfit: profit.toFixed(2),
+            totalPayout: (stake + profit).toFixed(2),
         };
-    }, [balance, riskPercent, stopLoss, pipValue]);
+    }, [balance, riskPercent, payoutPercent]);
 
     // Journal Handlers
     const handleSaveEntry = () => {
@@ -115,70 +114,67 @@ const RiskCalculator = observer(() => {
     return (
         <div className='risk-calculator-page'>
             <div className='risk-calculator-page__header'>
-                <Text as='h1'><Localize i18n_default_text='Advanced Risk Tools' /></Text>
+                <Text as='h1'><Localize i18n_default_text='Deriv Risk Tools' /></Text>
                 <Text color='less-prominent'>
-                    <Localize i18n_default_text='Calculate your risk and track your trading journey in one place.' />
+                    <Localize i18n_default_text='Calculate per-trade stake and track your bot journey.' />
                 </Text>
             </div>
 
-            <ThemedScrollbars>
-                <div className='risk-calculator-page__content'>
-                    {/* Left: Calculator */}
-                    <div className='card'>
-                        <div className='card__title'>
-                            <LabelPairedChartMixedCaptionBoldIcon width='24px' height='24px' fill='var(--brand-red-coral)' />
-                            <Localize i18n_default_text='Risk Calculator' />
-                        </div>
-                        
-                        <div className='calculator-form'>
-                            <InputField
-                                label={localize('Account Balance ($)')}
-                                value={balance}
-                                onChange={(e: any) => setBalance(e.target.value)}
-                                type='number'
-                            />
-                            <div className='calculator-form__row'>
-                                <InputField
-                                    label={localize('Risk (%)')}
-                                    value={riskPercent}
-                                    onChange={(e: any) => setRiskPercent(e.target.value)}
-                                    type='number'
-                                />
-                                <InputField
-                                    label={localize('Stop Loss (Pips)')}
-                                    value={stopLoss}
-                                    onChange={(e: any) => setStopLoss(e.target.value)}
-                                    type='number'
-                                />
+            <div className='risk-calculator-page__scroll-container'>
+                <ThemedScrollbars>
+                    <div className='risk-calculator-page__content'>
+                        {/* Left: Calculator */}
+                        <div className='card'>
+                            <div className='card__title'>
+                                <LabelPairedChartMixedCaptionBoldIcon width='24px' height='24px' fill='var(--brand-red-coral)' />
+                                <Localize i18n_default_text='Stake Calculator' />
                             </div>
-                            <InputField
-                                label={localize('Pip Value (per Lot)')}
-                                value={pipValue}
-                                onChange={(e: any) => setPipValue(e.target.value)}
-                                type='number'
-                                message={localize('Example: 10 for standard pairs')}
-                            />
+                            
+                            <div className='calculator-form'>
+                                <InputField
+                                    label={localize('Account Balance ($)')}
+                                    value={balance}
+                                    onChange={(e: any) => setBalance(e.target.value)}
+                                    type='number'
+                                />
+                                <div className='calculator-form__row'>
+                                    <InputField
+                                        label={localize('Risk (%)')}
+                                        value={riskPercent}
+                                        onChange={(e: any) => setRiskPercent(e.target.value)}
+                                        type='number'
+                                    />
+                                    <InputField
+                                        label={localize('Market Payout (%)')}
+                                        value={payoutPercent}
+                                        onChange={(e: any) => setPayoutPercent(e.target.value)}
+                                        type='number'
+                                    />
+                                </div>
 
-                            <div className='calculator-form__results'>
-                                <div className='calculator-form__result-item'>
-                                    <Text size='sm'><Localize i18n_default_text='Risk Amount' /></Text>
-                                    <Text weight='bold'>${calculations.riskAmount}</Text>
-                                </div>
-                                <div className='calculator-form__result-item calculator-form__result-item--highlight'>
-                                    <Text size='md' weight='bold'><Localize i18n_default_text='Recommended Lot Size' /></Text>
-                                    <Text size='lg' weight='bold'>{calculations.lotSize}</Text>
-                                </div>
-                                <div className='calculator-form__result-item'>
-                                    <Text size='sm'><Localize i18n_default_text='TP (1:2 Reward)' /></Text>
-                                    <Text color='profit'>+${calculations.reward1_2}</Text>
-                                </div>
-                                <div className='calculator-form__result-item'>
-                                    <Text size='sm'><Localize i18n_default_text='TP (1:3 Reward)' /></Text>
-                                    <Text color='profit'>+${calculations.reward1_3}</Text>
+                                <div className='calculator-form__results'>
+                                    <div className='calculator-form__result-item'>
+                                        <Text size='sm'><Localize i18n_default_text='Risk Amount' /></Text>
+                                        <Text weight='bold'>${calculations.riskAmount}</Text>
+                                    </div>
+                                    <div className='calculator-form__result-item calculator-form__result-item--highlight'>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <Text size='md' weight='bold' color='prominent'><Localize i18n_default_text='Recommended Stake' /></Text>
+                                            <Text size='xxs' color='less-prominent'><Localize i18n_default_text='Based on your risk %' /></Text>
+                                        </div>
+                                        <Text size='lg' weight='bold' color='profit'>${calculations.recommendedStake}</Text>
+                                    </div>
+                                    <div className='calculator-form__result-item'>
+                                        <Text size='sm'><Localize i18n_default_text='Potential Profit' /></Text>
+                                        <Text color='profit'>+${calculations.potentialProfit}</Text>
+                                    </div>
+                                    <div className='calculator-form__result-item'>
+                                        <Text size='sm'><Localize i18n_default_text='Total Payout' /></Text>
+                                        <Text weight='bold'>${calculations.totalPayout}</Text>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
                     {/* Right: Journal */}
                     <div className='card journal-section'>
