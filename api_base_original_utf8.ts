@@ -1,4 +1,4 @@
-/* [AI] - Analytics removed - utility functions moved to @/utils/account-helpers */
+﻿/* [AI] - Analytics removed - utility functions moved to @/utils/account-helpers */
 import { getAccountId, getAccountType, isDemoAccount, removeUrlParameter } from '@/utils/account-helpers';
 /* [/AI] */
 import CommonStore from '@/stores/common-store';
@@ -511,10 +511,10 @@ class APIBase {
                     async () => {
                         console.log(`[APIBase] Subscribing to ${streamName}...`);
                         if (this.api?.connection?.readyState === 1) {
-                            this.api.connection.send(JSON.stringify({
+                            return this.api.send({
                                 [streamName]: 1,
                                 subscribe: 1,
-                            }));
+                            });
                         }
                         return Promise.resolve();
                     },
