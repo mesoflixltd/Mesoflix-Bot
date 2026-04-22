@@ -101,3 +101,12 @@ After the first fix, two additional root causes remained:
   - clear cached `active_symbols`
   - clear `active_symbols_promise`
 - This forces clean symbol re-fetch after reconnect/account regeneration and avoids stale cache loops.
+
+### D) Prevent concurrent socket init races and OAuth hard-fail on transient WS errors
+- Serialize `APIBase.init()` calls (including forced reconnect calls) so only one init pipeline can run at a time.
+- Queue force-reinit requests instead of opening competing sockets in parallel.
+- Avoid rethrowing raw WebSocket `error` events from `init()`; emit error + closed status and let reconnect logic recover.
+- This prevents:
+  - double `Requesting new API instance...` races,
+  - singleton clears while another socket is mid-handshake,
+  - OAuth/account-fetch flows failing hard due to transient WS errors.

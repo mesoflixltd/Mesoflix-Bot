@@ -67,6 +67,7 @@ class APIBase {
     reconnection_attempts: number = 0;
     is_initializing = false;
     private init_promise: Promise<void> | null = null;
+    private queued_force_reinit = false;
     private message_subscription: { unsubscribe: () => void } | null = null;
     private last_buy_data: any = null;
 
@@ -170,7 +171,8 @@ class APIBase {
     }
 
     async init(force_create_connection = false) {
-        if (this.is_initializing && !force_create_connection) {
+        if (this.is_initializing) {
+            if (force_create_connection) this.queued_force_reinit = true;
             return this.init_promise;
         }
 
@@ -332,9 +334,14 @@ class APIBase {
                 chart_api.init(force_create_connection);
             } catch (error) {
                 console.error('[APIBase] Initialization failed:', error);
-                throw error;
+                globalObserver.emit('Error', error);
+                setConnectionStatus(CONNECTION_STATUS.CLOSED);
             } finally {
                 this.is_initializing = false;
+                if (this.queued_force_reinit) {
+                    this.queued_force_reinit = false;
+                    void this.init(true);
+                }
             }
         })();
 
