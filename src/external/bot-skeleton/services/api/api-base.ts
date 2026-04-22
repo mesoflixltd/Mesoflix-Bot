@@ -67,6 +67,7 @@ class APIBase {
     is_initializing = false;
     private init_promise: Promise<void> | null = null;
     private message_subscription: { unsubscribe: () => void } | null = null;
+    private last_buy_data: any = null;
 
     // Constants for timeouts - extracted magic numbers for better maintainability
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000;
@@ -220,8 +221,19 @@ class APIBase {
                             if (!msg_type || !message[msg_type]) return;
 
                             const data = message[msg_type];
+                            if (!data) return;
 
-                            // Critical Fix: Only emit specialized events on their dedicated channels.
+                            // Critical Fix: Capture the 'buy' response to enrich future 'contract.status' events
+                            if (msg_type === 'buy') {
+                                this.last_buy_data = data;
+                                globalObserver.emit('contract.status', {
+                                    id: 'contract.purchase_received',
+                                    buy: data,
+                                });
+                                return;
+                            }
+
+                            // Only emit specialized events on their dedicated channels.
                             // Do NOT send everything through bot.contract as it crashes the UI.
                             if (msg_type === 'proposal_open_contract') {
                                 globalObserver.emit('bot.contract', data);
@@ -230,6 +242,7 @@ class APIBase {
                                 globalObserver.emit('contract.status', {
                                     id: is_sold ? 'contract.sold' : 'contract.purchase_received',
                                     contract: data,
+                                    buy: this.last_buy_data || {}, // Defensive: Provide last buy data or empty object to prevent crash
                                 });
                             } else if (msg_type === 'balance' || msg_type === 'transaction') {
                                 globalObserver.emit('bot.contract', data);
