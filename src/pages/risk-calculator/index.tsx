@@ -272,8 +272,9 @@ const RiskCalculator = observer(() => {
                             </div>
                         )}
                     </div>
-                </div>
-            </ThemedScrollbars>
+                    </div>
+                </ThemedScrollbars>
+            </div>
         </div>
     );
 });
