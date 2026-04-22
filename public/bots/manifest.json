@@ -5,14 +5,8 @@
         "description": "High-performance Martingale strategy optimized for synthetic indices. Reliable and stable growth for 2026.",
         "category": "Risk Management",
         "icon": "performance",
-        "status": "Trending"
-    },
-    {
-        "id": "apex-ai-v1",
-        "name": "Apex_AI_V1.xml",
-        "description": "Adaptive Artificial Intelligence protocol that adjusts to market volatility. Pure precision trading.",
-        "category": "AI Strategy",
-        "icon": "ai",
-        "status": "Stable"
+        "status": "Trending",
+        "accuracy": 88,
+        "isPremium": true
     }
 ]

@@ -6,8 +6,8 @@
         "node": "20.x"
     },
     "scripts": {
-        "start": "rsbuild dev -o",
-        "build": "rsbuild build",
+        "start": "node scripts/generate-bot-manifest.js && rsbuild dev -o",
+        "build": "node scripts/generate-bot-manifest.js && rsbuild build",
         "watch": "rsbuild build --watch",
         "serve": "http-server dist -p 8443 -a localhost -o",
         "start:webpack": "webpack serve --open --config webpack.config.js",
