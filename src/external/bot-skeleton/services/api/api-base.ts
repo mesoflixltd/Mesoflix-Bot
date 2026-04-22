@@ -11,6 +11,7 @@ import { observer as globalObserver } from '../../utils/observer';
 import { doUntilDone, socket_state } from '../tradeEngine/utils/helpers';
 import {
     CONNECTION_STATUS,
+    authData$,
     setAccountList,
     setAuthData,
     setConnectionStatus,
@@ -81,6 +82,15 @@ class APIBase {
     constructor() {
         this.onsocketopenBound = this.onsocketopen.bind(this);
         this.onsocketcloseBound = this.onsocketclose.bind(this);
+    }
+
+    private isContractClosed(contract: Record<string, any> = {}) {
+        return Boolean(
+            contract.is_sold ||
+                contract.is_expired ||
+                contract.is_settleable ||
+                (contract.status && contract.status !== 'open')
+        );
     }
 
     unsubscribeAllSubscriptions = () => {
@@ -204,6 +214,10 @@ class APIBase {
                     // Critical: Reset authorization state for the NEW socket instance
                     this.is_authorized = false;
                     this.token = '';
+                    this.has_active_symbols = false;
+                    this.active_symbols = [];
+                    this.active_symbols_promise = null;
+                    this.last_buy_data = null;
 
                     if (this.api?.connection) {
                         // Cleanup previous message subscription
@@ -233,19 +247,57 @@ class APIBase {
                                 return;
                             }
 
+                            if (msg_type === 'balance') {
+                                const current_auth_data = authData$.value;
+                                const current_account_list = current_auth_data?.account_list || [];
+                                const mapped_account_list = current_account_list.map((account: Record<string, any>) =>
+                                    account.loginid === data.loginid
+                                        ? { ...account, balance: data.balance, currency: data.currency || account.currency }
+                                        : account
+                                );
+                                const account_exists = mapped_account_list.some(
+                                    (account: Record<string, any>) => account.loginid === data.loginid
+                                );
+                                const next_account_list = account_exists
+                                    ? mapped_account_list
+                                    : [
+                                          ...mapped_account_list,
+                                          {
+                                              loginid: data.loginid,
+                                              balance: data.balance,
+                                              currency: data.currency || 'USD',
+                                              is_virtual: getAccountType(data.loginid) === 'real' ? 0 : 1,
+                                          },
+                                      ];
+
+                                setAccountList(next_account_list);
+                                setAuthData({
+                                    ...(current_auth_data || {}),
+                                    balance: data.balance,
+                                    currency: data.currency,
+                                    loginid: data.loginid,
+                                    account_list: next_account_list,
+                                });
+
+                                const currentClientStore = globalObserver.getState('client.store');
+                                if (currentClientStore && data.loginid === currentClientStore.loginid) {
+                                    currentClientStore.setBalance(String(data.balance));
+                                    if (data.currency) currentClientStore.setCurrency(data.currency);
+                                }
+                                return;
+                            }
+
                             // Only emit specialized events on their dedicated channels.
                             // Do NOT send everything through bot.contract as it crashes the UI.
                             if (msg_type === 'proposal_open_contract') {
                                 globalObserver.emit('bot.contract', data);
                                 
-                                const is_sold = !!data.is_sold;
+                                const is_sold = this.isContractClosed(data);
                                 globalObserver.emit('contract.status', {
                                     id: is_sold ? 'contract.sold' : 'contract.purchase_received',
                                     contract: data,
                                     buy: this.last_buy_data || {}, // Defensive: Provide last buy data or empty object to prevent crash
                                 });
-                            } else if (msg_type === 'balance' || msg_type === 'transaction') {
-                                globalObserver.emit('bot.contract', data);
                             }
                         });
 
@@ -266,8 +318,9 @@ class APIBase {
 
                 const hasAccountID = V2GetActiveAccountId();
 
-                if (!this.has_active_symbols && !hasAccountID) {
-                    this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
+                if (!hasAccountID) {
+                    this.active_symbols_promise = null;
+                    this.has_active_symbols = false;
                 }
 
                 this.initEventListeners();
@@ -446,9 +499,7 @@ class APIBase {
                 localStorage.setItem('active_loginid', balance.loginid);
             }
 
-            if (this.has_active_symbols) {
-                this.toggleRunButton(false);
-            } else {
+            if (!this.has_active_symbols) {
                 this.active_symbols_promise = this.getActiveSymbols();
             }
             this.subscribe();
