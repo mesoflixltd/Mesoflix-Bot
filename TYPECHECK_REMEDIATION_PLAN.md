@@ -27,3 +27,4 @@ Running `npm run type-check` currently reports a large number of pre-existing er
 - Added retry + backoff for `active_symbols` fetch (3 attempts).
 - Reject empty `active_symbols` responses as failures (instead of caching empty state).
 - Reset active symbol state on failure to avoid stale-loop deadlocks.
+- Batch A started: added TypeScript path aliases for `Types` and `Stores/*`, plus a local declaration shim for `@deriv/stores/types` to remove unresolved-module blockers before deeper strict typing cleanup.
