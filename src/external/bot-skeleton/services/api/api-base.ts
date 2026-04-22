@@ -367,27 +367,31 @@ class APIBase {
     }
 
     async subscribe() {
-        const subscribeToStream = (streamName: string) => {
-            return doUntilDone(
-                () => {
-                    const subscription = this.api?.send({
-                        [streamName]: 1,
-                        subscribe: 1,
-                    });
+        const subscribeToStream = async (streamName: string) => {
+            try {
+                await doUntilDone(
+                    () => {
+                        const subscription = this.api?.send({
+                            [streamName]: 1,
+                            subscribe: 1,
+                        });
 
-                    if (subscription) {
-                        this.current_auth_subscriptions.push(subscription);
-                    }
-                    return subscription;
-                },
-                [],
-                this
-            );
+                        if (subscription) {
+                            this.current_auth_subscriptions.push(subscription);
+                        }
+                        return subscription;
+                    },
+                    [],
+                    this
+                );
+            } catch (err) {
+                console.error(`[APIBase] Failed to subscribe to ${streamName}:`, err);
+            }
         };
 
         const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
-
-        await Promise.all(streamsToSubscribe.map(subscribeToStream));
+        // Run subscriptions in parallel but handle failures gracefully
+        await Promise.allSettled(streamsToSubscribe.map(subscribeToStream));
     }
 
     getActiveSymbols = async () => {

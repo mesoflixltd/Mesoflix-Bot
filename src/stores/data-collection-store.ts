@@ -99,30 +99,42 @@ export default class DataCollectionStore {
                 return {
                     body: content,
                     headers: {
-                        'Content-Encoding': 'gzip',
-                        'Content-Type': 'application/xml',
-                        Referer: window.location.hostname,
+                        // 'Content-Encoding': 'gzip',  // Forbidden in no-cors
+                        // 'Content-Type': 'application/xml', // Not a simple header
+                        'Content-Type': 'text/plain', // Standard simple header
                     },
                 };
             };
 
-            fetch(
-                `${this.endpoint}/${this.run_id}/${transaction_id}/${this.run_start}/${this.getHash(
-                    this.strategy_content
-                )}`,
-                {
-                    ...(this.should_post_xml ? getPayload() : {}),
-                    method: 'POST',
-                    mode: 'no-cors',
-                }
-            )
-                .then(() => {
-                    this.should_post_xml = false;
-                    this.transaction_ids[transaction_id] = this.IS_PROCESSED;
-                })
-                .catch(() => {
-                    delete this.transaction_ids[transaction_id];
-                });
+            // Non-blocking fire-and-forget tracking with try-catch
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                fetch(
+                    `${this.endpoint}/${this.run_id}/${transaction_id}/${this.run_start}/${this.getHash(
+                        this.strategy_content
+                    )}`,
+                    {
+                        ...(this.should_post_xml ? getPayload() : {}),
+                        method: 'POST',
+                        mode: 'no-cors',
+                        signal: controller.signal,
+                    }
+                )
+                    .then(() => {
+                        clearTimeout(timeoutId);
+                        this.should_post_xml = false;
+                        this.transaction_ids[transaction_id] = this.IS_PROCESSED;
+                    })
+                    .catch(() => {
+                        clearTimeout(timeoutId);
+                        delete this.transaction_ids[transaction_id];
+                    });
+            } catch (error) {
+                // Completely silent failure to prevent bot interference
+                delete this.transaction_ids[transaction_id];
+            }
         }
     }
 
