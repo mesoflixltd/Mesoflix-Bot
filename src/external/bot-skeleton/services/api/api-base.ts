@@ -18,7 +18,7 @@ import {
     setIsAuthorizing,
 } from './observables/connection-status-stream';
 import ApiHelpers from './api-helpers';
-import { generateDerivApiInstance } from './appId';
+import { generateDerivApiInstance, getToken, V2GetActiveAccountId } from './appId';
 import chart_api from './chart-api';
 
 type CurrentSubscription = {
@@ -279,10 +279,24 @@ class APIBase {
     async authorizeAndSubscribe() {
         if (!this.api) return;
 
-        this.account_id = getAccountId() || '';
+        const { token, account_id } = getToken();
+        if (!token) {
+            setIsAuthorizing(false);
+            return;
+        }
+
+        this.account_id = account_id || '';
         setIsAuthorizing(true);
 
         try {
+            // First, authorize the connection
+            const authResponse = await this.api.authorize(token);
+            
+            if (authResponse.error) {
+                throw authResponse.error;
+            }
+
+            // After authorization, get the balance
             const { balance, error } = await this.api.send({ balance: 1 });
 
             if (error) {
