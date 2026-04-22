@@ -215,25 +215,24 @@ class APIBase {
                         this.message_subscription = this.api.onMessage().subscribe((envelope: any) => {
                             // Unwrap the { name: 'message', data: { ... } } structure
                             const message = envelope?.data || {};
-                            const msg_type = message.msg_type || Object.keys(message).find(k => ['balance', 'transaction', 'proposal_open_contract'].includes(k));
+                            const msg_type = message.msg_type;
                             
-                            if (!msg_type) return;
+                            if (!msg_type || !message[msg_type]) return;
 
                             const data = message[msg_type];
-                            if (!data) return;
 
-                            console.log(`[APIBase] Processing ${msg_type} update`);
-
-                            // Emit 'bot.contract' for all critical streams to update UI/Balance
-                            globalObserver.emit('bot.contract', data);
-
-                            // Special handling for contract status transitions to unblock the bot
+                            // Critical Fix: Only emit specialized events on their dedicated channels.
+                            // Do NOT send everything through bot.contract as it crashes the UI.
                             if (msg_type === 'proposal_open_contract') {
+                                globalObserver.emit('bot.contract', data);
+                                
                                 const is_sold = !!data.is_sold;
                                 globalObserver.emit('contract.status', {
                                     id: is_sold ? 'contract.sold' : 'contract.purchase_received',
                                     contract: data,
                                 });
+                            } else if (msg_type === 'balance' || msg_type === 'transaction') {
+                                globalObserver.emit('bot.contract', data);
                             }
                         });
 
