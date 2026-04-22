@@ -199,6 +199,10 @@ class APIBase {
                     console.log('[APIBase] Requesting new API instance...');
                     this.api = await generateDerivApiInstance(force_create_connection);
                     
+                    // Critical: Reset authorization state for the NEW socket instance
+                    this.is_authorized = false;
+                    this.token = '';
+
                     if (this.api?.connection) {
                         if (this.onsocketopenBound) {
                             this.api.connection.addEventListener('open', this.onsocketopenBound);

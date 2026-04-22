@@ -60,8 +60,13 @@ export const generateDerivApiInstance = async (forceNew = false) => {
             const wsURL = await getSocketURL();
             
             // Handle URL changes (Account switcher)
-            if (currentWebSocketURL && currentWebSocketURL !== wsURL) {
-                console.log('[DerivAPI] URL changed, resetting connection');
+            // Fix: Compare only the base URL path, ignoring query parameters like OTP 
+            // which change on every call and were causing infinite resets.
+            const currentBase = currentWebSocketURL ? currentWebSocketURL.split('?')[0] : null;
+            const newBase = wsURL ? wsURL.split('?')[0] : null;
+
+            if (currentBase && currentBase !== newBase) {
+                console.log('[DerivAPI] Environment changed (Demo/Real), resetting connection');
                 clearDerivApiInstance();
                 // Recurse once to start with new URL
                 return generateDerivApiInstance(true);
