@@ -74,6 +74,7 @@ class APIBase {
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000;
     private readonly ENRICHMENT_TIMEOUT_MS = 10000;
     private readonly MAX_RECONNECTION_ATTEMPTS = 5;
+    private readonly ACTIVE_SYMBOLS_MAX_RETRIES = 3;
 
     // Fixed persistence of bound handlers to ensure removeEventListener works correctly
     private onsocketopenBound: (() => void) | null = null;
@@ -542,43 +543,66 @@ class APIBase {
             throw new Error('API connection not available');
         }
 
-        try {
-            const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
-            );
-
-            const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
-            const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
-            const { active_symbols = [], error = {} } = apiResult as any;
-
-            if (error && Object.keys(error).length > 0) {
-                throw new Error(`Active symbols API error: ${error.message || 'Unknown error'}`);
-            }
-
-            this.has_active_symbols = true;
-
+        let last_error: unknown = null;
+        for (let attempt = 1; attempt <= this.ACTIVE_SYMBOLS_MAX_RETRIES; attempt++) {
             try {
-                const enrichmentTimeout = new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('Enrichment timeout')), this.ENRICHMENT_TIMEOUT_MS)
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
                 );
 
-                const enrichmentPromise = activeSymbolsProcessorService.processActiveSymbols(active_symbols);
-                const processedResult = await Promise.race([enrichmentPromise, enrichmentTimeout]);
+                const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
+                const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
+                const { active_symbols = [], error = {} } = apiResult as any;
 
-                this.active_symbols = processedResult.enrichedSymbols;
-                this.pip_sizes = processedResult.pipSizes;
-            } catch (enrichmentError) {
-                console.warn('Symbol enrichment failed:', enrichmentError);
-                this.active_symbols = active_symbols;
+                if (error && Object.keys(error).length > 0) {
+                    throw new Error(`Active symbols API error: ${error.message || 'Unknown error'}`);
+                }
+
+                if (!Array.isArray(active_symbols) || active_symbols.length === 0) {
+                    throw new Error('Active symbols API returned empty list');
+                }
+
+                this.has_active_symbols = true;
+
+                try {
+                    const enrichmentTimeout = new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('Enrichment timeout')), this.ENRICHMENT_TIMEOUT_MS)
+                    );
+
+                    const enrichmentPromise = activeSymbolsProcessorService.processActiveSymbols(active_symbols);
+                    const processedResult = await Promise.race([enrichmentPromise, enrichmentTimeout]);
+
+                    this.active_symbols = processedResult.enrichedSymbols;
+                    this.pip_sizes = processedResult.pipSizes;
+                } catch (enrichmentError) {
+                    console.warn('Symbol enrichment failed:', enrichmentError);
+                    this.active_symbols = active_symbols;
+                    this.pip_sizes = {};
+                }
+
+                this.toggleRunButton(false);
+                return this.active_symbols;
+            } catch (error) {
+                last_error = error;
+                this.has_active_symbols = false;
+                this.active_symbols = [];
                 this.pip_sizes = {};
-            }
+                this.active_symbols_promise = null;
 
-            this.toggleRunButton(false);
-            return this.active_symbols;
-        } catch (error) {
-            console.error('Failed to fetch and process active symbols:', error);
-            throw error;
+                if (attempt < this.ACTIVE_SYMBOLS_MAX_RETRIES) {
+                    const retry_delay = 500 * attempt;
+                    console.warn(
+                        `[APIBase] Active symbols fetch failed (attempt ${attempt}/${this.ACTIVE_SYMBOLS_MAX_RETRIES}), retrying in ${retry_delay}ms:`,
+                        error
+                    );
+                    await new Promise(resolve => setTimeout(resolve, retry_delay));
+                    continue;
+                }
+            }
         }
+
+        console.error('Failed to fetch and process active symbols:', last_error);
+        throw last_error;
     };
 
     toggleRunButton = (toggle: boolean) => {
