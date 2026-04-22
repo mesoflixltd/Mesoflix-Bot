@@ -33,12 +33,12 @@ type SubscriptionPromise = Promise<{
 type TApiBaseApi = {
     connection: {
         readyState: keyof typeof socket_state;
-        addEventListener: (event: string, callback: () => void) => void;
-        removeEventListener: (event: string, callback: () => void) => void;
+        addEventListener: (event: string, callback: (...args: any[]) => void) => void;
+        removeEventListener: (event: string, callback: (...args: any[]) => void) => void;
     };
-    send: (data: unknown) => void;
+    send: (data: unknown) => Promise<any>;
     disconnect: () => void;
-    authorize: (token: string) => Promise<{ authorize: TAuthData; error: unknown }>;
+    authorize: (token: string) => Promise<{ authorize: TAuthData; error: any }>;
 
     onMessage: () => {
         subscribe: (callback: (message: unknown) => void) => {
@@ -68,9 +68,18 @@ class APIBase {
     private init_promise: Promise<void> | null = null;
 
     // Constants for timeouts - extracted magic numbers for better maintainability
-    private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
-    private readonly ENRICHMENT_TIMEOUT_MS = 10000; // 10 seconds
-    private readonly MAX_RECONNECTION_ATTEMPTS = 5; // Maximum number of reconnection attempts before session reset
+    private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000;
+    private readonly ENRICHMENT_TIMEOUT_MS = 10000;
+    private readonly MAX_RECONNECTION_ATTEMPTS = 5;
+
+    // Fixed persistence of bound handlers to ensure removeEventListener works correctly
+    private onsocketopenBound: (() => void) | null = null;
+    private onsocketcloseBound: (() => void) | null = null;
+
+    constructor() {
+        this.onsocketopenBound = this.onsocketopen.bind(this);
+        this.onsocketcloseBound = this.onsocketclose.bind(this);
+    }
 
     unsubscribeAllSubscriptions = () => {
         this.current_auth_subscriptions?.forEach(subscription_promise => {
@@ -86,9 +95,8 @@ class APIBase {
     };
 
     onsocketopen() {
+        console.log('[APIBase] Socket opened');
         setConnectionStatus(CONNECTION_STATUS.OPENED);
-
-        // Reset reconnection attempts on successful connection
         this.reconnection_attempts = 0;
 
         const currentClientStore = globalObserver.getState('client.store');
@@ -106,31 +114,24 @@ class APIBase {
 
         if (account_id) {
             localStorage.setItem('active_loginid', account_id);
-            // Remove account_id from URL after storing
             removeUrlParameter('account_id');
         }
         if (accountType) {
             localStorage.setItem('account_type', accountType);
-            // Remove account_type from URL after storing
             removeUrlParameter('account_type');
         }
 
-        // Check if we have an account_id from URL or localStorage
         let activeAccountId: string | null = getAccountId();
 
-        // If no account_id in localStorage, check sessionStorage for accounts
         if (!activeAccountId) {
             try {
                 const storedAccounts = sessionStorage.getItem('deriv_accounts');
                 if (storedAccounts) {
                     const accounts = JSON.parse(storedAccounts);
                     if (accounts && accounts.length > 0 && accounts[0].account_id) {
-                        // Use the first account as default
                         const accountId = accounts[0].account_id as string;
                         activeAccountId = accountId;
                         localStorage.setItem('active_loginid', accountId);
-
-                        // Set account type based on account_id prefix
                         const isDemo = accountId.startsWith('VRT') || accountId.startsWith('VRTC');
                         localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
                     }
@@ -140,21 +141,23 @@ class APIBase {
             }
         }
 
-        // Now proceed with normal authorization if we have an account_id
         if (activeAccountId) {
-            setIsAuthorizing(true);
             await this.authorizeAndSubscribe();
         }
     }
 
     onsocketclose() {
+        console.log('[APIBase] Socket closed, state:', this.api?.connection?.readyState);
         setConnectionStatus(CONNECTION_STATUS.CLOSED);
-        this.reconnectIfNotConnected();
+        
+        // Add a slight delay before reconnecting to prevent infinite loops if disconnect triggers close
+        setTimeout(() => {
+            this.reconnectIfNotConnected();
+        }, 100);
     }
 
     async init(force_create_connection = false) {
         if (this.is_initializing && !force_create_connection) {
-            console.log('[APIBase] Already initializing, waiting for existing promise...');
             return this.init_promise;
         }
 
@@ -167,7 +170,6 @@ class APIBase {
                     this.unsubscribeAllSubscriptions();
                 }
 
-                // Reset reconnection attempts counter on successful connection initialization
                 if (!force_create_connection) {
                     this.reconnection_attempts = 0;
                 }
@@ -178,10 +180,16 @@ class APIBase {
                 if (!is_socket_usable || force_create_connection) {
                     if (this.api?.connection) {
                         try {
+                            // Properly remove existing listeners before disconnecting
+                            if (this.onsocketopenBound) {
+                                this.api.connection.removeEventListener('open', this.onsocketopenBound);
+                            }
+                            if (this.onsocketcloseBound) {
+                                this.api.connection.removeEventListener('close', this.onsocketcloseBound);
+                            }
+                            
                             ApiHelpers.disposeInstance();
                             setConnectionStatus(CONNECTION_STATUS.CLOSED);
-                            this.api.connection.removeEventListener('open', this.onsocketopen.bind(this));
-                            this.api.connection.removeEventListener('close', this.onsocketclose.bind(this));
                             this.api.disconnect();
                         } catch (e) {
                             console.warn('[APIBase] Error during cleanup:', e);
@@ -190,23 +198,27 @@ class APIBase {
 
                     console.log('[APIBase] Requesting new API instance...');
                     this.api = await generateDerivApiInstance(force_create_connection);
-                    console.log('[APIBase] API instance received (state:', this.api?.connection?.readyState, ')');
+                    
+                    if (this.api?.connection) {
+                        if (this.onsocketopenBound) {
+                            this.api.connection.addEventListener('open', this.onsocketopenBound);
+                        }
+                        if (this.onsocketcloseBound) {
+                            this.api.connection.addEventListener('close', this.onsocketcloseBound);
+                        }
 
-                    this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
-                    this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
-
-                    // Manually trigger token exchange and authorization since the connection is already open
-                    // We don't call onsocketopen() to avoid duplicate state updates
-                    await this.handleTokenExchangeIfNeeded();
-
-                    // Store the current account ID used for this WebSocket connection
-                    const currentClientStore = globalObserver.getState('client.store');
-                    if (currentClientStore) {
-                        const active_login_id = getAccountId();
-                        if (active_login_id) {
-                            currentClientStore.setWebSocketLoginId(active_login_id);
+                        // If already open, trigger manual setup
+                        if (this.api.connection.readyState === 1) {
+                            console.log('[APIBase] Socket already open, triggering setup');
+                            this.onsocketopen();
                         }
                     }
+                }
+
+                const hasAccountID = V2GetActiveAccountId();
+
+                if (!this.has_active_symbols && !hasAccountID) {
+                    this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
                 }
 
                 this.initEventListeners();
@@ -215,6 +227,9 @@ class APIBase {
                 this.time_interval = null;
 
                 chart_api.init(force_create_connection);
+            } catch (error) {
+                console.error('[APIBase] Initialization failed:', error);
+                throw error;
             } finally {
                 this.is_initializing = false;
             }
@@ -232,8 +247,12 @@ class APIBase {
     }
 
     terminate() {
-        // eslint-disable-next-line no-console
-        if (this.api) this.api.disconnect();
+        if (this.api) {
+            if (this.onsocketcloseBound) {
+                this.api.connection?.removeEventListener('close', this.onsocketcloseBound);
+            }
+            this.api.disconnect();
+        }
     }
 
     initEventListeners() {
@@ -250,34 +269,31 @@ class APIBase {
     }
 
     reconnectIfNotConnected = () => {
-        // Stop if already initializing
         if (this.is_initializing) return;
 
-        if (this.api?.connection?.readyState && this.api?.connection?.readyState > 1) {
+        const readyState = this.api?.connection?.readyState;
+        if (readyState === undefined || readyState > 1) { // 2: CLOSING, 3: CLOSED, or non-existent
             this.reconnection_attempts += 1;
 
             if (this.reconnection_attempts >= this.MAX_RECONNECTION_ATTEMPTS) {
-                // Reset reconnection counter
                 this.reconnection_attempts = 0;
-
-                // Properly handle logout through the API
                 setIsAuthorized(false);
                 setAccountList([]);
                 setAuthData(null);
-
-                // Clear necessary storage items
                 localStorage.removeItem('active_loginid');
                 localStorage.removeItem('account_type');
                 localStorage.removeItem('accountsList');
                 localStorage.removeItem('clientAccounts');
+                return;
             }
 
+            console.log('[APIBase] Reconnecting (attempt:', this.reconnection_attempts, ')');
             this.init(true);
         }
     };
 
     async authorizeAndSubscribe() {
-        if (!this.api) return;
+        if (!this.api || this.is_authorized && this.token === getAccountId()) return;
 
         const { token, account_id } = getToken();
         if (!token) {
@@ -289,24 +305,18 @@ class APIBase {
         setIsAuthorizing(true);
 
         try {
-            // First, authorize the connection
+            console.log('[APIBase] Authorizing...');
             const authResponse = await this.api.authorize(token);
             
             if (authResponse.error) {
                 throw authResponse.error;
             }
 
-            // After authorization, get the balance
             const { balance, error } = await this.api.send({ balance: 1 });
 
             if (error) {
-                const errorMessage = isBackendError(error)
-                    ? handleBackendError(error)
-                    : error.message || 'Authorization failed';
-
-                // Authorization error
+                const errorMessage = isBackendError(error) ? handleBackendError(error) : error.message || 'Authorization failed';
                 console.error('Authorization error:', errorMessage);
-
                 setIsAuthorizing(false);
                 return { ...error, localizedMessage: errorMessage };
             }
@@ -328,8 +338,6 @@ class APIBase {
                   }
                 : null;
 
-            // Build full account list from sessionStorage (populated during OAuth flow)
-            // Falls back to just the current account if sessionStorage has no data
             const storedAccounts = DerivWSAccountsService.getStoredAccounts();
             const accountList =
                 storedAccounts && storedAccounts.length > 0
@@ -345,7 +353,7 @@ class APIBase {
                       ? [currentAccount]
                       : [];
 
-            setAccountList(accountList); // Observable stream
+            setAccountList(accountList);
             setAuthData({
                 balance: balance?.balance,
                 currency: balance?.currency,
@@ -354,15 +362,9 @@ class APIBase {
                 account_list: accountList,
             });
 
-            // // Set account_type in localStorage based on loginid prefix using centralized utility
             const loginid = balance?.loginid || '';
             const isDemo = isDemoAccount(loginid);
-
-            if (isDemo) {
-                localStorage.setItem('account_type', 'demo');
-            } else {
-                localStorage.setItem('account_type', 'real');
-            }
+            localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
 
             globalObserver.emit('api.authorize', {
                 account_list: accountList,
@@ -374,7 +376,6 @@ class APIBase {
                 },
             });
 
-            // Update the WebSocket login ID in the client store
             const currentClientStore = globalObserver.getState('client.store');
             if (currentClientStore && balance?.loginid) {
                 currentClientStore.setWebSocketLoginId(balance.loginid);
@@ -396,6 +397,7 @@ class APIBase {
             }
             this.subscribe();
         } catch (e) {
+            console.error('[APIBase] Authorization flow failed:', e);
             this.is_authorized = false;
             clearAuthData();
             setIsAuthorized(false);
@@ -429,38 +431,29 @@ class APIBase {
         };
 
         const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
-        // Run subscriptions in parallel but handle failures gracefully
         await Promise.allSettled(streamsToSubscribe.map(subscribeToStream));
     }
 
     getActiveSymbols = async () => {
         if (!this.api) {
-            throw new Error('API connection not available for fetching active symbols');
+            throw new Error('API connection not available');
         }
 
         try {
-            // Add timeout to prevent hanging
             const timeout = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
             );
 
             const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
-
             const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
-
             const { active_symbols = [], error = {} } = apiResult as any;
 
             if (error && Object.keys(error).length > 0) {
                 throw new Error(`Active symbols API error: ${error.message || 'Unknown error'}`);
             }
 
-            if (!active_symbols.length) {
-                throw new Error('No active symbols received from API');
-            }
-
             this.has_active_symbols = true;
 
-            // Process active symbols using the dedicated service with fallback
             try {
                 const enrichmentTimeout = new Promise<never>((_, reject) =>
                     setTimeout(() => reject(new Error('Enrichment timeout')), this.ENRICHMENT_TIMEOUT_MS)
@@ -472,8 +465,7 @@ class APIBase {
                 this.active_symbols = processedResult.enrichedSymbols;
                 this.pip_sizes = processedResult.pipSizes;
             } catch (enrichmentError) {
-                console.warn('Symbol enrichment failed, using raw symbols:', enrichmentError);
-                // Fallback to raw symbols if enrichment fails
+                console.warn('Symbol enrichment failed:', enrichmentError);
                 this.active_symbols = active_symbols;
                 this.pip_sizes = {};
             }
@@ -503,10 +495,7 @@ class APIBase {
     clearSubscriptions() {
         this.subscriptions.forEach(s => s.unsubscribe());
         this.subscriptions = [];
-
-        // Resetting timeout resolvers
         const global_timeouts = globalObserver.getState('global_timeouts') ?? [];
-
         global_timeouts.forEach((_: unknown, i: number) => {
             clearTimeout(i);
         });
