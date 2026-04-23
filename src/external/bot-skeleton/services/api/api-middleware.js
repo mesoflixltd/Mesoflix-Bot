@@ -50,14 +50,15 @@ class APIMiddleware {
             
             // Detail forget_all contents for troubleshooting
             if (log_request.forget_all && Array.isArray(log_request.forget_all)) {
-                // Protect our core proposal_open_contract subscription from being accidentally killed
+                // Protect our core proposal_open_contract subscriptions from being accidentally killed
                 const api_base = require('./api-base').api_base;
-                if (api_base.poc_subscription_id) {
+                if (api_base.protected_subscription_ids && api_base.protected_subscription_ids.size > 0) {
                     const original_length = log_request.forget_all.length;
-                    log_request.forget_all = log_request.forget_all.filter(id => id !== api_base.poc_subscription_id);
+                    log_request.forget_all = log_request.forget_all.filter(id => !api_base.protected_subscription_ids.has(id));
+                    
                     if (log_request.forget_all.length !== original_length) {
                         // Keep a quiet log for protection
-                        console.debug('[APIBase] Shielding poc stream from forget_all');
+                        console.debug('[APIBase] Shielding protected streams from forget_all');
                         request.forget_all = log_request.forget_all;
                     }
                 }

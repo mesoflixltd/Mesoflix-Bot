@@ -49,9 +49,16 @@ type TApiBaseApi = {
 } & ReturnType<typeof generateDerivApiInstance>;
 
 class APIBase {
-    api: TApiBaseApi | null = null;
-    token: string = '';
-    account_id: string = '';
+    public api: any;
+    public token: string = '';
+    public account_id: string = '';
+    public is_authorized: boolean = false;
+    public active_symbols: any[] = [];
+    public has_active_symbols: boolean = false;
+    public active_symbols_promise: any = null;
+    public pip_sizes: { [key: string]: number } = {};
+    public message_subscription: any = null;
+    public protected_subscription_ids: Set<string> = new Set();
     pip_sizes = {};
     account_info = {};
     is_running = false;
@@ -210,6 +217,7 @@ class APIBase {
                     this.has_active_symbols = false;
                     this.active_symbols = [];
                     this.active_symbols_promise = null;
+                    this.protected_subscription_ids.clear();
 
                     // Add compatibility layer for legacy bot-skeleton components that expect ({ data }) => { ... }
                     // Modern @deriv/deriv-api emits the message directly without a 'data' wrapper.
@@ -285,16 +293,17 @@ class APIBase {
                             if (msg_type === 'proposal_open_contract') {
                                 const contract = message.proposal_open_contract;
                                 
-                                if ((window as any).DERIV_API_LOGGING !== false) {
-                                    console.log(`%c[OpenContract] POC ID: ${contract?.contract_id}, Sold: ${contract?.is_sold}`, 'color: #00BCD4; font-weight: bold;');
-                                }
-                                
                                 if (contract) {
-                                    // Track subscription ID to prevent accidental 'forget_all'
+                                    // Track ALL POC subscription IDs to prevent accidental 'forget_all'
                                     if (message.subscription?.id) {
-                                        (this as any).poc_subscription_id = message.subscription.id;
+                                        this.protected_subscription_ids.add(message.subscription.id);
                                     }
-
+                                    
+                                    // Quiet logging for status tracking
+                                    if (contract.is_sold && (window as any).DERIV_API_LOGGING) {
+                                        console.log(`%c[OpenContract] POC ID: ${contract.contract_id} SOLD`, 'color: #4CAF50; font-weight: bold;');
+                                    }
+                                    
                                     // Signal to trade engine
                                     globalObserver.emit('bot.contract', contract);
                                     
@@ -306,6 +315,17 @@ class APIBase {
                                             contract 
                                         });
                                     }
+                                }
+                            } else if (msg_type === 'buy') {
+                                // AUTO LOCK-ON: When a purchase is made, immediately subscribe to that specific contract ID
+                                const contract_id = message.buy?.contract_id;
+                                if (contract_id) {
+                                    console.log(`%c[BRIDGE] New Trade Detected: ${contract_id}. Subscribing...`, 'color: #f44336; font-weight: bold;');
+                                    this.api.send({
+                                        proposal_open_contract: 1,
+                                        contract_id: contract_id,
+                                        subscribe: 1
+                                    }).catch((e: any) => console.error('[BRIDGE] Auto-subscribe failed:', e));
                                 }
                             } else if (msg_type === 'transaction') {
                                 globalObserver.emit('bot.transaction', message.transaction);
