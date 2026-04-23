@@ -45,7 +45,6 @@ type TApiBaseApi = {
             unsubscribe: () => void;
         };
     };
-    balance: () => Promise<{ balance: { balance: number; currency: string; loginid: string; country?: string }; error: any }>;
 } & ReturnType<typeof generateDerivApiInstance>;
 
 class APIBase {
@@ -117,17 +116,7 @@ class APIBase {
         // Check if we have an account_id from URL or localStorage
         let activeAccountId: string | null = getAccountId();
 
-        // If no account_id in localStorage, check for Legacy API tokens
-        if (!activeAccountId) {
-            const legacyAccounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
-            const legacyLoginIds = Object.keys(legacyAccounts);
-            if (legacyLoginIds.length > 0) {
-                activeAccountId = legacyLoginIds[0];
-                localStorage.setItem('active_loginid', activeAccountId);
-            }
-        }
-
-        // If still no account_id, check sessionStorage for OIDC accounts
+        // If no account_id in localStorage, check sessionStorage for accounts
         if (!activeAccountId) {
             try {
                 const storedAccounts = sessionStorage.getItem('deriv_accounts');
@@ -182,51 +171,38 @@ class APIBase {
                 this.api.connection.removeEventListener('close', this.onsocketclose.bind(this));
             }
 
-            // [AI] - Point 1: Boot Resilience. Do not allow WebSocket initialization to hang the app indefinitely.
-            // Wrap the instance generation in an 8-second race.
-            const apiInitTimeout = new Promise<null>((_, reject) => 
-                setTimeout(() => reject(new Error('WebSocket initialization timeout')), 8000)
-            );
-
-            try {
-                this.api = await Promise.race([
-                    generateDerivApiInstance(force_create_connection),
-                    apiInitTimeout
-                ]) as TApiBaseApi;
-                
-                // [AI Surgical Fix] Add compatibility layer for legacy bot-skeleton components
-                if (this.api) {
-                    const originalOnMessage = this.api.onMessage.bind(this.api);
-                    (this.api as any).onMessage = () => {
-                        const observable = originalOnMessage();
-                        return {
-                            ...observable,
-                            subscribe: (observer: any) => {
-                                const wrapper = (message: any) => {
-                                    const envelope = (message && typeof message === 'object' && 'data' in message) 
-                                        ? message 
-                                        : { data: message };
-                                    
-                                    if (typeof observer === 'function') {
-                                        observer(envelope);
-                                    } else if (observer && typeof observer.next === 'function') {
-                                        observer.next(envelope);
-                                    }
-                                };
-                                return observable.subscribe(wrapper);
-                            }
-                        } as any;
-                    };
-                }
-            } catch (error) {
-                console.error('[APIBase] Socket initialization failed or timed out:', error);
-                // We resolve anyway to allow the UI to mount in a "Disconnected" state
+            this.api = await generateDerivApiInstance();
+            
+            // [AI Surgical Fix] Add compatibility layer for legacy bot-skeleton components
+            if (this.api) {
+                const originalOnMessage = this.api.onMessage.bind(this.api);
+                (this.api as any).onMessage = () => {
+                    const observable = originalOnMessage();
+                    return {
+                        ...observable,
+                        subscribe: (observer: any) => {
+                            const wrapper = (message: any) => {
+                                const envelope = (message && typeof message === 'object' && 'data' in message) 
+                                    ? message 
+                                    : { data: message };
+                                
+                                if (typeof observer === 'function') {
+                                    observer(envelope);
+                                } else if (observer && typeof observer.next === 'function') {
+                                    observer.next(envelope);
+                                }
+                            };
+                            return observable.subscribe(wrapper);
+                        }
+                    } as any;
+                };
             }
 
             this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
             this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
 
             // Store the current account ID used for this WebSocket connection
+            // This will be used to check if we need to regenerate the connection when the tab becomes active
             const currentClientStore = globalObserver.getState('client.store');
             if (currentClientStore) {
                 const active_login_id = getAccountId();
@@ -239,13 +215,7 @@ class APIBase {
         const hasAccountID = V2GetActiveAccountId();
 
         if (!this.has_active_symbols && !hasAccountID) {
-            // [AI] Non-blocking fetch for symbols during initial public boot
-            this.active_symbols_promise = this.getActiveSymbols()
-                .then(symbols => symbols)
-                .catch(err => {
-                    console.warn('[APIBase] Active symbols failed to init, but continuing boot:', err);
-                    return undefined;
-                });
+            this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
         }
 
         this.initEventListeners();
@@ -283,32 +253,26 @@ class APIBase {
     }
 
     reconnectIfNotConnected = () => {
-        // [AI] - Point 3: Loop prevention. Only trigger init(true) if the socket is definitively closed or errored.
-        // Also avoid triggering if we're currently connecting to prevent rapid-fire loops.
-        const readyState = this.api?.connection?.readyState;
-        
-        if (readyState === 2 || readyState === 3) { // CLOSING or CLOSED
+        if (this.api?.connection?.readyState && this.api?.connection?.readyState > 1) {
             this.reconnection_attempts += 1;
 
             if (this.reconnection_attempts >= this.MAX_RECONNECTION_ATTEMPTS) {
-                console.error('[APIBase] Max reconnection attempts reached. Resetting session to break loop.');
+                // Reset reconnection counter
                 this.reconnection_attempts = 0;
-                
-                // Only clear if we aren't in a stable OIDC session (where we might just need a quiet refresh)
-                if (globalObserver.getState('client.store')?.auth_mode !== 'oidc') {
-                    setIsAuthorized(false);
-                    setAccountList([]);
-                    setAuthData(null);
-                    localStorage.removeItem('active_loginid');
-                }
+
+                // Properly handle logout through the API
+                setIsAuthorized(false);
+                setAccountList([]);
+                setAuthData(null);
+
+                // Clear necessary storage items
+                localStorage.removeItem('active_loginid');
+                localStorage.removeItem('account_type');
+                localStorage.removeItem('accountsList');
+                localStorage.removeItem('clientAccounts');
             }
 
-            console.log(`[APIBase] Connection lost. Attempting reconnection ${this.reconnection_attempts}/${this.MAX_RECONNECTION_ATTEMPTS}`);
-            
-            // [AI] - Point 3: Spaced Reconnection. Delay the attempt by 1000ms to avoid slamming the browser/server.
-            setTimeout(() => {
-                this.init(true);
-            }, 1000);
+            this.init(true);
         }
     };
 
@@ -319,28 +283,7 @@ class APIBase {
         setIsAuthorizing(true);
 
         try {
-            // Check if this is a legacy account that needs manual authorization
-            const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
-            const legacyToken = accountsList[this.account_id];
-
-            let balance;
-            let error;
-
-            const authTimeout = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Handshake timeout')), 5000)
-            );
-
-            if (legacyToken) {
-                console.log('[APIBase] Authorizing legacy account:', this.account_id);
-                const authResponse = (await Promise.race([this.api.authorize(legacyToken), authTimeout])) as any;
-                balance = authResponse.authorize;
-                error = authResponse.error;
-            } else {
-                console.log('[APIBase] Using OIDC-authenticated balance for account:', this.account_id);
-                const balanceResponse = (await Promise.race([this.api.balance(), authTimeout])) as any;
-                balance = balanceResponse.balance;
-                error = balanceResponse.error;
-            }
+            const { balance, error } = await (this.api as any).balance();
 
             if (error) {
                 const errorMessage = isBackendError(error)
