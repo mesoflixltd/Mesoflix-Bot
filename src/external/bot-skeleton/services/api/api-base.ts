@@ -204,12 +204,39 @@ class APIBase {
                     console.log('[APIBase] Requesting new API instance...');
                     this.api = await generateDerivApiInstance(force_create_connection);
 
-                    // Reset state for the new connection
+                    // RESET state for the new connection
                     this.is_authorized = false;
                     this.token = '';
                     this.has_active_symbols = false;
                     this.active_symbols = [];
                     this.active_symbols_promise = null;
+
+                    // Add compatibility layer for legacy bot-skeleton components that expect ({ data }) => { ... }
+                    // Modern @deriv/deriv-api emits the message directly without a 'data' wrapper.
+                    if (this.api) {
+                        const originalOnMessage = this.api.onMessage.bind(this.api);
+                        (this.api as any).onMessage = () => {
+                            const observable = originalOnMessage();
+                            return {
+                                ...observable,
+                                subscribe: (observer: any) => {
+                                    const wrapper = (message: any) => {
+                                        // Wrap raw messages back into legacy { data } structure
+                                        const envelope = (message && typeof message === 'object' && 'data' in message) 
+                                            ? message 
+                                            : { data: message };
+                                        
+                                        if (typeof observer === 'function') {
+                                            observer(envelope);
+                                        } else if (observer && typeof observer.next === 'function') {
+                                            observer.next(envelope);
+                                        }
+                                    };
+                                    return observable.subscribe(wrapper);
+                                }
+                            } as any;
+                        };
+                    }
 
                     if (this.api?.connection) {
                         // Expose logging helper to window for easier debugging
