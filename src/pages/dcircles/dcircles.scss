@@ -1,150 +1,345 @@
-.dcircles-page {
-    height: 100%;
-    overflow: auto;
-    padding: 2rem;
-    background: var(--general-main-1);
+/* ═══════════════════════════════════════════════════════════════════
+   DCircles — Premium Digit Analysis UI
+   ═══════════════════════════════════════════════════════════════════ */
 
+// ── Page shell ────────────────────────────────────────────────────────
+.dcircles-page {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2.8rem 3.2rem;
+    background: var(--general-main-1);
+    box-sizing: border-box;
+
+    // Subtle dot-grid texture
+    &::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: radial-gradient(circle at 1px 1px, rgba(127, 92, 255, 0.07) 1px, transparent 0);
+        background-size: 30px 30px;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    > * { position: relative; z-index: 1; }
+
+    // ── Header ──────────────────────────────────────────────────────
     &__header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        gap: 1.2rem;
-        margin-bottom: 1.6rem;
-
-        h2 {
-            margin: 0;
-            font-size: 2rem;
-            color: var(--text-prominent);
-        }
-
-        p {
-            margin: 0.4rem 0 0;
-            color: var(--text-less-prominent);
-            font-size: 1.3rem;
-        }
+        gap: 1.6rem;
+        margin-bottom: 2.4rem;
+        flex-wrap: wrap;
     }
 
+    &__title-wrap { flex: 1; min-width: 0; }
+
+    &__title {
+        margin: 0 0 0.5rem;
+        font-size: 2.8rem;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #7f5cff 0%, #00d2ff 45%, #7f5cff 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: dc-shimmer 5s linear infinite;
+    }
+
+    &__subtitle {
+        margin: 0;
+        font-size: 1.35rem;
+        color: var(--text-less-prominent);
+    }
+
+    // ── Connection status ────────────────────────────────────────────
     &__status {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 1.4rem 0.5rem 0.9rem;
         border-radius: 999px;
-        padding: 0.5rem 1rem;
         font-size: 1.1rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+        flex-shrink: 0;
 
-        &--connected {
-            background: color-mix(in srgb, var(--status-success) 18%, transparent);
-            color: var(--status-success);
-        }
-
-        &--connecting {
-            background: color-mix(in srgb, var(--status-warning) 18%, transparent);
-            color: var(--status-warning);
-        }
-
+        &--connected  { background: rgba(0,200,83,.12);   color: #00c853; }
+        &--connecting { background: rgba(255,193,7,.12);  color: #ffc107; }
         &--closed,
-        &--error {
-            background: color-mix(in srgb, var(--status-danger) 18%, transparent);
-            color: var(--status-danger);
+        &--error      { background: rgba(244,67,54,.12);  color: #f44336; }
+    }
+
+    &__status-dot {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+
+        .dcircles-page__status--connected & {
+            animation: dc-pulse 1.6s ease-in-out infinite;
         }
     }
 
+    // ── Summary pills ─────────────────────────────────────────────────
+    &__summary {
+        display: flex;
+        gap: 1.2rem;
+        flex-wrap: wrap;
+        margin-bottom: 2.4rem;
+    }
+
+    // ── Controls ──────────────────────────────────────────────────────
     &__controls {
         display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
         align-items: center;
-        gap: 0.8rem;
-        margin-bottom: 2rem;
+        gap: 1.2rem;
+        flex-wrap: wrap;
+        margin-bottom: 2.8rem;
 
         label {
-            width: 100%; // label stays on its own line
-            color: var(--text-general);
             font-size: 1.2rem;
-        }
-
-        select {
-            max-width: 34rem;
-            border: 1px solid var(--general-section-1);
-            border-radius: 0.8rem;
-            padding: 0.8rem 1rem;
-            background: var(--general-main-2);
-            color: var(--text-prominent);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--text-less-prominent);
+            white-space: nowrap;
         }
     }
 
-    // Removed __loading block — grid is always rendered now
+    &__select-wrap {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex: 1;
+        max-width: 42rem;
+
+        select {
+            flex: 1;
+            padding: 0.95rem 3.2rem 0.95rem 1.4rem;
+            border-radius: 1rem;
+            border: 1.5px solid var(--general-section-1);
+            background: var(--general-main-2);
+            color: var(--text-prominent);
+            font-size: 1.4rem;
+            font-weight: 600;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1.2rem center;
+            transition: border-color 0.2s, box-shadow 0.2s;
+
+            &:focus {
+                outline: none;
+                border-color: #7f5cff;
+                box-shadow: 0 0 0 3px rgba(127,92,255,.18);
+            }
+        }
+    }
 
     &__spinner {
-        width: 1.6rem;
-        height: 1.6rem;
-        border: 2px solid var(--general-section-1);
-        border-top-color: var(--brand-red-coral, #ff444f);
+        width: 1.8rem;
+        height: 1.8rem;
+        border: 2.5px solid rgba(127,92,255,.2);
+        border-top-color: #7f5cff;
         border-radius: 50%;
-        animation: dcircles-spin 0.7s linear infinite;
+        animation: dc-spin 0.7s linear infinite;
         flex-shrink: 0;
     }
 
-    &__offline-banner {
-        background: rgba(255, 68, 79, 0.08);
-        border: 1px solid rgba(255, 68, 79, 0.3);
-        border-radius: 0.8rem;
-        padding: 0.8rem 1.2rem;
-        color: #ff444f;
-        font-size: 1.2rem;
-        margin-bottom: 1.4rem;
+    // ── Offline banner ────────────────────────────────────────────────
+    &__offline {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.9rem 1.4rem;
+        margin-bottom: 2rem;
+        border-radius: 1rem;
+        background: rgba(244,67,54,.07);
+        border: 1px solid rgba(244,67,54,.25);
+        color: #f44336;
+        font-size: 1.3rem;
     }
 }
 
-@keyframes dcircles-spin {
+// ── Summary pill cards ─────────────────────────────────────────────────
+.dcircles-pill {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.8rem;
+    border-radius: 1.4rem;
+    background: var(--general-main-2);
+    border: 1px solid var(--general-section-1);
+    transition: transform 0.18s, box-shadow 0.18s;
+
+    &:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+
+    &__icon { font-size: 2rem; line-height: 1; }
+
+    &__label {
+        font-size: 1.05rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-less-prominent);
+        margin-bottom: 0.2rem;
+    }
+
+    &__value {
+        font-size: 2.2rem;
+        font-weight: 900;
+        line-height: 1;
+        color: var(--text-prominent);
+    }
+
+    &--hot  .dcircles-pill__value { color: #ff6b35; }
+    &--cold .dcircles-pill__value { color: #38f9d7; }
+}
+
+// ── 5-column digit grid ────────────────────────────────────────────────
+.dcircles-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.6rem;
+    width: 100%;
+
+    @media (max-width: 1080px) { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width:  780px) { grid-template-columns: repeat(3, 1fr); }
+    @media (max-width:  520px) { grid-template-columns: repeat(2, 1fr); }
+}
+
+// ── Ring card ──────────────────────────────────────────────────────────
+.dcircles-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 1.6rem 1.2rem 1.2rem;
+    border-radius: 1.8rem;
+    background: var(--general-main-2);
+    border: 1.5px solid var(--general-section-1);
+    cursor: default;
+    user-select: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 32px rgba(var(--glow), .28);
+        border-color: rgba(var(--glow), .45);
+    }
+
+    // ── Heat variants ──────────────────────────────────────────────
+    &--hot     { --ring-color: #ff6b35; }
+    &--warm    { --ring-color: #ffd700; }
+    &--neutral { --ring-color: #7f5cff; }
+    &--cold    { --ring-color: #38f9d7; }
+
+    // ── Hottest digit: persistent glow ────────────────────────────
+    &--hottest {
+        border-color: rgba(var(--glow), .45);
+        box-shadow: 0 0 28px rgba(var(--glow), .3), inset 0 0 18px rgba(var(--glow), .06);
+    }
+
+    // ── Last-tick flash ────────────────────────────────────────────
+    &--flash {
+        animation: dc-flash 0.65s ease-out;
+    }
+
+    // ── SVG ring ───────────────────────────────────────────────────
+    &__ring {
+        width: 100%;
+        aspect-ratio: 1;
+    }
+
+    &__svg {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+    }
+
+    &__track {
+        fill: none;
+        stroke: var(--general-section-1);
+        stroke-width: 6;
+    }
+
+    &__arc {
+        fill: none;
+        stroke-width: 6;
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: 50px 50px;
+        transition: stroke-dashoffset 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    &__num {
+        fill: var(--text-prominent);
+        font-size: 2.8rem;
+        font-weight: 900;
+        text-anchor: middle;
+        dominant-baseline: auto;
+        paint-order: stroke;
+        stroke: var(--general-main-2);
+        stroke-width: 4;
+        stroke-linejoin: round;
+    }
+
+    &__pct-inner {
+        fill: var(--ring-color, var(--text-less-prominent));
+        font-size: 1.3rem;
+        font-weight: 700;
+        text-anchor: middle;
+        dominant-baseline: auto;
+    }
+
+    // ── Footer row ─────────────────────────────────────────────────
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 0 0.2rem;
+    }
+
+    &__ticks {
+        font-size: 1.15rem;
+        color: var(--text-less-prominent);
+        font-weight: 600;
+    }
+
+    &__badge {
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+}
+
+// ── Animations ─────────────────────────────────────────────────────────
+@keyframes dc-spin {
     to { transform: rotate(360deg); }
 }
 
-.dcircles-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1.2rem;
+@keyframes dc-pulse {
+    0%, 100% { opacity: 1;   transform: scale(1);   }
+    50%       { opacity: 0.4; transform: scale(0.75); }
 }
 
-.dcircles-card {
-    background: var(--general-main-2);
-    border: 1px solid var(--general-section-1);
-    border-radius: 1.2rem;
-    padding: 1.2rem;
+@keyframes dc-shimmer {
+    from { background-position:   0% center; }
+    to   { background-position: 200% center; }
+}
 
-    &__digit {
-        width: 4.2rem;
-        height: 4.2rem;
-        border-radius: 999px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, var(--brand-red-coral), #7f5cff);
-        color: #fff;
-        font-size: 1.8rem;
-        font-weight: 800;
-        margin-bottom: 0.8rem;
-    }
-
-    &__meta {
-        display: flex;
-        justify-content: space-between;
-        color: var(--text-prominent);
-        font-size: 1.2rem;
-        margin-bottom: 0.8rem;
-    }
-
-    &__bar {
-        height: 0.7rem;
-        border-radius: 999px;
-        background: var(--general-section-1);
-        overflow: hidden;
-    }
-
-    &__bar-fill {
-        height: 100%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, var(--brand-red-coral), #7f5cff);
-        transition: width 0.25s ease;
-    }
+@keyframes dc-flash {
+    0%   { background: rgba(var(--glow, 127,92,255), .22); }
+    100% { background: var(--general-main-2); }
 }
