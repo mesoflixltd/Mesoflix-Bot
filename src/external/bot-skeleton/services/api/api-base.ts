@@ -260,6 +260,11 @@ class APIBase {
                             if (msg_type === 'proposal_open_contract') {
                                 const contract = message.proposal_open_contract;
                                 if (contract) {
+                                    // Track subscription ID to prevent accidental 'forget_all'
+                                    if (message.subscription?.id) {
+                                        (this as any).poc_subscription_id = message.subscription.id;
+                                    }
+
                                     // Signal to trade engine
                                     globalObserver.emit('bot.contract', contract);
                                     

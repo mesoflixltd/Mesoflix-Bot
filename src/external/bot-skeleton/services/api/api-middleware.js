@@ -51,6 +51,18 @@ class APIMiddleware {
             // Detail forget_all contents for troubleshooting
             if (log_request.forget_all && Array.isArray(log_request.forget_all)) {
                 console.log('%c[API Request] forget_all array:', 'color: #FF5722; font-style: italic;', log_request.forget_all);
+                
+                // Protect our core proposal_open_contract subscription from being accidentally killed
+                const api_base = require('./api-base').api_base;
+                if (api_base.poc_subscription_id) {
+                    const original_length = log_request.forget_all.length;
+                    log_request.forget_all = log_request.forget_all.filter(id => id !== api_base.poc_subscription_id);
+                    if (log_request.forget_all.length !== original_length) {
+                        console.warn('%c[PROTECTION] Blocked forget_all for proposal_open_contract ID!', 'color: #f44336; font-weight: bold;');
+                        // Update the ACTUAL request that will be sent
+                        request.forget_all = log_request.forget_all;
+                    }
+                }
             }
             
             console.log('%c[API Request]', 'color: #2196F3; font-weight: bold;', log_request);
