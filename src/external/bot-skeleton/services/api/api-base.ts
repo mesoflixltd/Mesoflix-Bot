@@ -231,11 +231,34 @@ class APIBase {
                             const message = envelope?.data ?? envelope ?? {};
                             
                             // Log all incoming messages if debugging is enabled
-                            if ((window as any).DERIV_API_LOGGING && message.msg_type !== 'balance') {
-                                console.log('%c[WS Message]', 'color: #9C27B0;', message);
+                            if ((window as any).DERIV_API_LOGGING) {
+                                if (message.msg_type !== 'balance' && message.msg_type !== 'time') {
+                                    console.log('%c[WS Message]', 'color: #9C27B0; font-weight: bold;', message);
+                                }
                             }
                             
                             const msg_type = message.msg_type;
+                            
+                            // Bridge stream messages to global observer to ensure UI and Trade Engine stay in sync
+                            if (msg_type === 'proposal_open_contract') {
+                                const contract = message.proposal_open_contract;
+                                if (contract) {
+                                    // Signal to trade engine
+                                    globalObserver.emit('bot.contract', contract);
+                                    
+                                    // Handle completion
+                                    if (contract.is_sold) {
+                                        globalObserver.emit('contract.status', { 
+                                            id: 'contract.sold', 
+                                            data: contract.transaction_ids?.sell, 
+                                            contract 
+                                        });
+                                    }
+                                }
+                            } else if (msg_type === 'transaction') {
+                                globalObserver.emit('bot.transaction', message.transaction);
+                            }
+                            
                             if (msg_type !== 'balance') return;
 
                             const data = message.balance;
