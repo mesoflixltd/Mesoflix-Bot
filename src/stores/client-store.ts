@@ -310,8 +310,9 @@ export default class ClientStore {
         // Create handler function
         this.tab_visibility_handler = async () => {
             if (document.visibilityState === 'visible' && !this.is_regenerating) {
-                // Tab became visible - check if WebSocket needs regeneration
-                if (this.is_logged_in) {
+                // ✅ FIX: Don't regenerate WebSocket if bot is currently running
+                const isBotRunning = this.root_store?.run_panel?.is_running || false;
+                if (this.is_logged_in && !isBotRunning) {
                     this.checkAndRegenerateWebSocket();
                 }
             }
@@ -335,12 +336,18 @@ export default class ClientStore {
      */
     needsWebSocketRegeneration(): boolean {
         const active_login_id = getAccountId();
+        
+        // ✅ CRITICAL FIX: Don't regenerate WebSocket while bot is running
+        // This prevents the bot from getting stuck after the first trade completes
+        const isBotRunning = this.root_store?.run_panel?.is_running || false;
+        
         return (
             !this.is_regenerating &&
             !!active_login_id &&
             !!this.ws_login_id &&
             active_login_id !== this.ws_login_id &&
-            !api_base.is_running
+            !api_base.is_running &&
+            !isBotRunning  // 🔧 ADDED: prevents regeneration during bot execution
         );
     }
 
