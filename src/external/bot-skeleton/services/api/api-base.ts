@@ -202,7 +202,6 @@ class APIBase {
             this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
 
             // Store the current account ID used for this WebSocket connection
-            // This will be used to check if we need to regenerate the connection when the tab becomes active
             const currentClientStore = globalObserver.getState('client.store');
             if (currentClientStore) {
                 const active_login_id = getAccountId();
@@ -215,7 +214,13 @@ class APIBase {
         const hasAccountID = V2GetActiveAccountId();
 
         if (!this.has_active_symbols && !hasAccountID) {
-            this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
+            // [AI] Non-blocking fetch for symbols during initial public boot
+            this.active_symbols_promise = this.getActiveSymbols()
+                .then(symbols => symbols)
+                .catch(err => {
+                    console.warn('[APIBase] Active symbols failed to init, but continuing boot:', err);
+                    return undefined;
+                });
         }
 
         this.initEventListeners();
@@ -283,16 +288,16 @@ class APIBase {
         setIsAuthorizing(true);
 
         try {
-            const { balance, error } = await (this.api as any).balance();
+            // Use direct send for balance since we are 100% OIDC
+            const response = await this.api.send({ balance: 1 });
+            const { balance, error } = response as any;
 
             if (error) {
                 const errorMessage = isBackendError(error)
                     ? handleBackendError(error)
                     : error.message || 'Authorization failed';
 
-                // Authorization error
                 console.error('Authorization error:', errorMessage);
-
                 setIsAuthorizing(false);
                 return { ...error, localizedMessage: errorMessage };
             }
@@ -314,8 +319,6 @@ class APIBase {
                   }
                 : null;
 
-            // Build full account list from sessionStorage (populated during OAuth flow)
-            // Falls back to just the current account if sessionStorage has no data
             const storedAccounts = DerivWSAccountsService.getStoredAccounts();
             const accountList =
                 storedAccounts && storedAccounts.length > 0
@@ -331,7 +334,7 @@ class APIBase {
                       ? [currentAccount]
                       : [];
 
-            setAccountList(accountList); // Observable stream
+            setAccountList(accountList);
             setAuthData({
                 balance: balance?.balance,
                 currency: balance?.currency,
@@ -340,15 +343,9 @@ class APIBase {
                 account_list: accountList,
             });
 
-            // // Set account_type in localStorage based on loginid prefix using centralized utility
             const loginid = balance?.loginid || '';
             const isDemo = isDemoAccount(loginid);
-
-            if (isDemo) {
-                localStorage.setItem('account_type', 'demo');
-            } else {
-                localStorage.setItem('account_type', 'real');
-            }
+            localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
 
             globalObserver.emit('api.authorize', {
                 account_list: accountList,
@@ -360,7 +357,6 @@ class APIBase {
                 },
             });
 
-            // Update the WebSocket login ID in the client store
             const currentClientStore = globalObserver.getState('client.store');
             if (currentClientStore && balance?.loginid) {
                 currentClientStore.setWebSocketLoginId(balance.loginid);
@@ -375,6 +371,7 @@ class APIBase {
                 localStorage.setItem('active_loginid', balance.loginid);
             }
 
+            // [AI] - Point: Non-blocking symbols fetch to avoid stalling the dashboard
             if (this.has_active_symbols) {
                 this.toggleRunButton(false);
             } else {
@@ -421,15 +418,12 @@ class APIBase {
         }
 
         try {
-            // Add timeout to prevent hanging
             const timeout = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
             );
 
             const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
-
             const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
-
             const { active_symbols = [], error = {} } = apiResult as any;
 
             if (error && Object.keys(error).length > 0) {
@@ -442,7 +436,6 @@ class APIBase {
 
             this.has_active_symbols = true;
 
-            // Process active symbols using the dedicated service with fallback
             try {
                 const enrichmentTimeout = new Promise<never>((_, reject) =>
                     setTimeout(() => reject(new Error('Enrichment timeout')), this.ENRICHMENT_TIMEOUT_MS)
@@ -455,7 +448,6 @@ class APIBase {
                 this.pip_sizes = processedResult.pipSizes;
             } catch (enrichmentError) {
                 console.warn('Symbol enrichment failed, using raw symbols:', enrichmentError);
-                // Fallback to raw symbols if enrichment fails
                 this.active_symbols = active_symbols;
                 this.pip_sizes = {};
             }
@@ -486,9 +478,7 @@ class APIBase {
         this.subscriptions.forEach(s => s.unsubscribe());
         this.subscriptions = [];
 
-        // Resetting timeout resolvers
         const global_timeouts = globalObserver.getState('global_timeouts') ?? [];
-
         global_timeouts.forEach((_: unknown, i: number) => {
             clearTimeout(i);
         });
