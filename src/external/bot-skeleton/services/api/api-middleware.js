@@ -41,15 +41,32 @@ class APIMiddleware {
 
     sendIsCalled = ({ response_promise, args: [request] }) => {
         const req_type = this.getRequestType(request);
+        
+        // Log outgoing request (masking sensitive data)
+        if (window.DERIV_API_LOGGING) {
+            const log_request = { ...request };
+            if (log_request.authorize) log_request.authorize = '***';
+            console.log('%c[API Request]', 'color: #2196F3; font-weight: bold;', log_request);
+        }
+
         if (req_type) performance.mark(`${req_type}_start`);
         response_promise
             .then(res => {
+                // Log incoming response
+                if (window.DERIV_API_LOGGING) {
+                    console.log('%c[API Response]', 'color: #4CAF50; font-weight: bold;', res);
+                }
+
                 const res_type = this.getRequestType(res);
                 if (res_type) {
                     this.defineMeasure(res_type);
                 }
             })
-            .catch(() => {});
+            .catch(error => {
+                if (window.DERIV_API_LOGGING) {
+                    console.error('%c[API Error]', 'color: #F44336; font-weight: bold;', error);
+                }
+            });
         return response_promise;
     };
 }

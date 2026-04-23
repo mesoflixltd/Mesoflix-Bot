@@ -212,6 +212,13 @@ class APIBase {
                     this.active_symbols_promise = null;
 
                     if (this.api?.connection) {
+                        // Expose logging helper to window for easier debugging
+                        (window as any).enableApiLogging = (enable = true) => {
+                            (window as any).DERIV_API_LOGGING = enable;
+                            console.log(`%c[APIBase] API Logging ${enable ? 'ENABLED' : 'DISABLED'}`, 'font-weight: bold; color: #ff9800;');
+                            return `API Logging is now ${enable ? 'ON' : 'OFF'}. Check the console for incoming/outgoing messages.`;
+                        };
+
                         // Attach a single onMessage listener ONLY for real-time balance updates.
                         // All other stream handling (proposal_open_contract, transaction) is done
                         // natively by the trade engine classes (OpenContract.js, etc.) via their
@@ -222,6 +229,12 @@ class APIBase {
                         this.message_subscription = this.api.onMessage().subscribe((envelope: any) => {
                             // DerivAPIBasic wraps messages as { name, data } or directly as the data object.
                             const message = envelope?.data ?? envelope ?? {};
+                            
+                            // Log all incoming messages if debugging is enabled
+                            if ((window as any).DERIV_API_LOGGING && message.msg_type !== 'balance') {
+                                console.log('%c[WS Message]', 'color: #9C27B0;', message);
+                            }
+                            
                             const msg_type = message.msg_type;
                             if (msg_type !== 'balance') return;
 
