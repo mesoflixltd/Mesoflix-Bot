@@ -226,7 +226,7 @@ const DCircles = observer(() => {
             <div className='dcircles-page__controls'>
                 <label htmlFor='dcircles-symbol'><Localize i18n_default_text='Market' /></label>
                 <div className='dcircles-page__select-wrap'>
-                    <select id='dcircles-symbol' value={selectedSym} onChange={e => handleSymbolChange(e.target.value)}>
+                    <select id='dcircles-symbol' value={selectedSymbol} onChange={e => handleSymbolChange(e.target.value)}>
                         {symbols.map(s => <option key={s.symbol} value={s.symbol}>{s.display_name}</option>)}
                     </select>
                     {liveLoading && <span className='dcircles-page__spinner' />}
