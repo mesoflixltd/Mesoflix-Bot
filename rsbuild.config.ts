@@ -28,11 +28,14 @@ export default defineConfig({
             'process.env': {
                 APP_ENV: JSON.stringify(process.env.APP_ENV),
                 CLIENT_ID: JSON.stringify(process.env.CLIENT_ID),
+                APP_ID: JSON.stringify(process.env.APP_ID),
                 GD_CLIENT_ID: JSON.stringify(process.env.GD_CLIENT_ID),
                 GD_APP_ID: JSON.stringify(process.env.GD_APP_ID),
                 GD_API_KEY: JSON.stringify(process.env.GD_API_KEY),
             },
         },
+    },
+    resolve: {
         alias: {
             react: path.resolve('./node_modules/react'),
             'react-dom': path.resolve('./node_modules/react-dom'),
@@ -53,14 +56,9 @@ export default defineConfig({
                     ignore: ['**/*.LICENSE.txt'],
                 },
             },
-            { from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets/*', to: 'assets/[name][ext]' },
             {
-                from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets/fonts/*',
-                to: 'assets/fonts/[name][ext]',
-            },
-            {
-                from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets/shaders/*',
-                to: 'assets/shaders/[name][ext]',
+                from: 'node_modules/@deriv-com/smartcharts-champion/dist/assets',
+                to: 'assets',
             },
             { from: path.join(__dirname, 'public') },
         ],

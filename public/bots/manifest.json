@@ -1,0 +1,42 @@
+[
+    {
+        "id": "advanced-differs (2) 2",
+        "name": "ADVANCED_DIFFERS (2) 2.xml",
+        "description": "High-performance strategic bot: ADVANCED DIFFERS (2) 2. Optimized for the 2026 market.",
+        "category": "Trading Strategy",
+        "icon": "chart",
+        "status": "Stable",
+        "accuracy": 91,
+        "isPremium": true
+    },
+    {
+        "id": "mesoflix-super-martingale",
+        "name": "Mesoflix_Super_Martingale.xml",
+        "description": "High-performance Martingale strategy optimized for synthetic indices. Reliable and stable growth for 2026.",
+        "category": "Risk Management",
+        "icon": "performance",
+        "status": "Trending",
+        "accuracy": 88,
+        "isPremium": true
+    },
+    {
+        "id": "over-hitnrun🤖",
+        "name": "Over_HitnRun🤖.xml",
+        "description": "High-performance strategic bot: Over HitnRun🤖. Optimized for the 2026 market.",
+        "category": "Trading Strategy",
+        "icon": "chart",
+        "status": "Trending",
+        "accuracy": 91,
+        "isPremium": true
+    },
+    {
+        "id": "under-hitnrun",
+        "name": "Under_HitnRun.xml",
+        "description": "High-performance strategic bot: Under HitnRun. Optimized for the 2026 market.",
+        "category": "Trading Strategy",
+        "icon": "chart",
+        "status": "Trending",
+        "accuracy": 83,
+        "isPremium": true
+    }
+]

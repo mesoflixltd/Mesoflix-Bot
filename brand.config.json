@@ -1,11 +1,11 @@
 {
-    "brand_name": "YourBrand",
-    "brand_domain": "yourbrand.com",
+    "brand_name": "Mesoflix",
+    "brand_domain": "mesoflix.freedon.live",
     "brand_hostname": {
-        "staging": "staging.yourbrand.com/dashboard",
-        "production": "yourbrand.com/dashboard"
+        "staging": "mesoflix.freedon.live",
+        "production": "mesoflix.freedon.live"
     },
-    "domain_name": "YourBrand.com",
+    "domain_name": "Mesoflix.com",
     "colors": {
         "primary": "#3b82f6",
         "secondary": "#64748b",
@@ -58,25 +58,27 @@
         "css_variable_prefix": "--brand"
     },
     "platform": {
-        "name": "Trading Bot",
+        "name": "Mesoflix Bot",
+        "app_id": "330eaEOGxCeshCbrYIo8F",
+        "client_id": "330eaEOGxCeshCbrYIo8F",
         "logo": {
             "type": "component",
             "component_name": "BrandLogo",
-            "alt_text": "Trading Bot",
+            "alt_text": "Mesoflix Bot",
             "link_url": "/",
             "show_text": false,
-            "text": "Trading Bot"
+            "text": "Mesoflix Bot"
         },
         "footer": {
             "enable_language_settings": false,
-            "enable_theme_toggle": false
+            "enable_theme_toggle": true
         },
         "hostname": {
             "production": {
-                "com": "bot.yourbrand.com"
+                "com": "mesoflix.freedon.live"
             },
             "staging": {
-                "com": "staging-bot.yourbrand.com"
+                "com": "mesoflix.freedon.live"
             }
         },
         "auth2_url": {
@@ -87,7 +89,7 @@
             "url": {
                 "staging": "https://staging-api.derivws.com/trading/v1/",
                 "production": "https://api.derivws.com/trading/v1/"
-            },
+              },
             "directories": {
                 "options": "options/",
                 "derivatives": "derivatives/"
@@ -95,3 +97,4 @@
         }
     }
 }
+

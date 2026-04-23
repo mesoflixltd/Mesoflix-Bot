@@ -58,7 +58,6 @@ const Layout = observer(() => {
             let detected_currency = '';
             const hasMissingCurrency = accounts.some(data => {
                 if (!allCurrencies.has(data.currency)) {
-                    console.log('Missing currency:', data.currency);
                     sessionStorage.setItem('query_param_currency', data.currency);
                     return true;
                 }

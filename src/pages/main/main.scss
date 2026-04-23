@@ -49,6 +49,13 @@
             overflow: hidden;
         }
 
+        @include mobile-or-tablet-screen {
+             overflow-y: auto;
+             overflow-x: hidden;
+             -webkit-overflow-scrolling: touch;
+             height: 100%;
+        }
+
         &--active {
             // css for onboard tour overlay
             &:before {
@@ -112,6 +119,8 @@
                 @include mobile-or-tablet-screen {
                     width: 100%;
                     overflow-x: auto;
+                    overflow-y: visible;
+                    height: auto;
 
                     &--no-result {
                         @include flex-center;

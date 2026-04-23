@@ -106,6 +106,7 @@ export default class TransactionsStore {
     };
 
     onBotContractEvent(data: TContractInfo) {
+        if (!data?.transaction_ids?.buy) return;
         this.pushTransaction(data);
     }
 

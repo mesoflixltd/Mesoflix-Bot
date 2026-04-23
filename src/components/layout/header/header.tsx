@@ -8,6 +8,7 @@ import { useApiBase } from '@/hooks/useApiBase';
 import { useLogout } from '@/hooks/useLogout';
 import { useStore } from '@/hooks/useStore';
 import { navigateToTransfer } from '@/utils/transfer-utils';
+import { BOT_VERSION_CONFIG } from '@/constants/bot-version';
 import { Localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { AppLogo } from '../app-logo';
@@ -17,6 +18,10 @@ import MobileMenu from './mobile-menu';
 import './header.scss';
 
 const AppHeader = observer(() => {
+    const buildVersion =
+        process.env.BUILD_VERSION ||
+        process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+        `v${BOT_VERSION_CONFIG.REQUIRED_VERSION}`;
     const { isDesktop } = useDevice();
     const { isAuthorizing, activeLoginid, setIsAuthorizing, authData } = useApiBase();
     const { client } = useStore() ?? {};
@@ -82,6 +87,22 @@ const AppHeader = observer(() => {
 
         return () => clearTimeout(timer);
     }, [isAuthorizing, activeLoginid, setIsAuthorizing, authTimeout, isOAuthPending]);
+
+    const handleSignup = useCallback(async () => {
+        try {
+            setIsAuthorizing(true);
+            const oauthUrl = await generateOAuthURL('registration');
+            if (oauthUrl) {
+                window.location.replace(oauthUrl);
+            } else {
+                console.error('Failed to generate OAuth URL for signup');
+                setIsAuthorizing(false);
+            }
+        } catch (error) {
+            console.error('Signup redirection failed:', error);
+            setIsAuthorizing(false);
+        }
+    }, [setIsAuthorizing]);
 
     const handleLogin = useCallback(async () => {
         try {
@@ -158,6 +179,9 @@ const AppHeader = observer(() => {
                         <Button tertiary onClick={handleLogin}>
                             <Localize i18n_default_text='Log in' />
                         </Button>
+                        <Button primary_light onClick={handleSignup}>
+                            <Localize i18n_default_text='Sign up' />
+                        </Button>
                     </div>
                 );
             }
@@ -171,7 +195,16 @@ const AppHeader = observer(() => {
                             fill='none'
                             xmlns='http://www.w3.org/2000/svg'
                         >
-                            <circle cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='2.5' strokeLinecap='round' strokeDasharray='31.416' strokeDashoffset='10' />
+                            <circle
+                                cx='12'
+                                cy='12'
+                                r='10'
+                                stroke='currentColor'
+                                strokeWidth='2.5'
+                                strokeLinecap='round'
+                                strokeDasharray='31.416'
+                                strokeDashoffset='10'
+                            />
                         </svg>
                     </div>
                 );
@@ -190,6 +223,7 @@ const AppHeader = observer(() => {
             isOAuthPending,
             authData,
             handleLogin,
+            handleSignup,
             handleTransfer,
         ]
     );
@@ -207,11 +241,12 @@ const AppHeader = observer(() => {
                 <Wrapper variant='left'>
                     <MobileMenu onLogout={handleLogout} />
                     <AppLogo />
+                    <span className='app-header__build-version' title='Build version'>
+                        {buildVersion}
+                    </span>
                     {isDesktop ? <MenuItems /> : renderAccountSection('left')}
                 </Wrapper>
-                <Wrapper variant='right'>
-                    {renderAccountSection('right')}
-                </Wrapper>
+                <Wrapper variant='right'>{renderAccountSection('right')}</Wrapper>
             </Header>
         </>
     );

@@ -1,7 +1,7 @@
 import { action, computed, makeObservable, observable, reaction, runInAction } from 'mobx';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message } from '@/components/bot-notification/bot-notification-utils';
-import { generateSignupURL, isSafari, mobileOSDetect, standalone_routes } from '@/components/shared';
+import { generateOAuthURL, isSafari, mobileOSDetect, standalone_routes } from '@/components/shared';
 import { contract_stages, TContractStage } from '@/constants/contract-stage';
 import { run_panel } from '@/constants/run-panel';
 import { ErrorTypes, MessageTypes, observer, unrecoverable_errors } from '@/external/bot-skeleton';
@@ -373,7 +373,9 @@ export default class RunPanelStore {
     showLoginDialog = () => {
         // Only allow closing through the buttons
         this.onOkButtonClick = () => {
-            window.open(generateSignupURL());
+            generateOAuthURL('registration').then(url => {
+                if (url) window.location.replace(url);
+            });
             this.is_dialog_open = false;
         };
         this.onCancelButtonClick = () => {
@@ -581,31 +583,45 @@ export default class RunPanelStore {
     };
 
     onContractStatusEvent = (contract_status: TContractState) => {
-        switch (contract_status.id) {
-            case 'contract.purchase_sent': {
-                this.setContractStage(contract_stages.PURCHASE_SENT);
-                break;
-            }
-            case 'contract.purchase_received': {
-                this.is_contract_buying_in_progress = false;
-                this.setContractStage(contract_stages.PURCHASE_RECEIVED);
-                const { buy } = contract_status;
-                const { is_virtual } = this.core.client;
-
-                if (!is_virtual && buy) {
-                    GTM?.pushDataLayer?.({ event: 'dbot_purchase', buy_price: buy.buy_price });
+        try {
+            switch (contract_status.id) {
+                case 'contract.purchase_sent': {
+                    this.setContractStage(contract_stages.PURCHASE_SENT);
+                    break;
                 }
+                case 'contract.purchase_received': {
+                    this.is_contract_buying_in_progress = false;
+                    this.setContractStage(contract_stages.PURCHASE_RECEIVED);
+                    const { buy } = contract_status;
+                    const { is_virtual } = this.core.client;
 
-                break;
+                    if (!is_virtual && buy) {
+                        try {
+                            GTM?.pushDataLayer?.({ event: 'dbot_purchase', buy_price: buy.buy_price });
+                        } catch (gtm_error) {
+                            console.warn('GTM purchase tracking failed:', gtm_error);
+                        }
+                    }
+
+                    break;
+                }
+                case 'contract.sold': {
+                    this.is_sell_requested = false;
+                    this.setContractStage(contract_stages.CONTRACT_CLOSED);
+                    if (contract_status.contract) {
+                        try {
+                            GTM.onTransactionClosed(contract_status.contract);
+                        } catch (gtm_error) {
+                            console.warn('GTM transaction closed tracking failed:', gtm_error);
+                        }
+                    }
+                    break;
+                }
+                default:
+                    break;
             }
-            case 'contract.sold': {
-                this.is_sell_requested = false;
-                this.setContractStage(contract_stages.CONTRACT_CLOSED);
-                if (contract_status.contract) GTM.onTransactionClosed(contract_status.contract);
-                break;
-            }
-            default:
-                break;
+        } catch (error) {
+            console.error('Error in onContractStatusEvent:', error);
         }
     };
 
@@ -624,9 +640,13 @@ export default class RunPanelStore {
     };
 
     onBotContractEvent = (data: { is_sold?: boolean }) => {
-        if (data?.is_sold) {
-            this.is_sell_requested = false;
-            this.setContractStage(contract_stages.CONTRACT_CLOSED);
+        try {
+            if (data?.is_sold) {
+                this.is_sell_requested = false;
+                this.setContractStage(contract_stages.CONTRACT_CLOSED);
+            }
+        } catch (error) {
+            console.error('Error in onBotContractEvent:', error);
         }
     };
 

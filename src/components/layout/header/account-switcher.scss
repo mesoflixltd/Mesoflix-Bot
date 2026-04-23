@@ -732,6 +732,42 @@
     border-radius: $BORDER_RADIUS;
     box-shadow: 0 8px 16px 0 var(--shadow-menu);
     overflow: hidden;
+    min-width: 24rem;
+
+    @include mobile-screen {
+        position: fixed;
+        top: 6rem;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: min(92vw, 32rem);
+    }
+
+    &__group-tabs {
+        display: flex;
+        gap: 0.4rem;
+        padding: 0.8rem;
+        background: var(--general-main-1);
+        border-bottom: 1px solid var(--general-section-1);
+    }
+
+    &__group-tab {
+        flex: 1;
+        border: 1px solid var(--general-section-1);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text-general);
+        padding: 0.6rem 0.8rem;
+        font-size: 1.2rem;
+        font-weight: 700;
+        cursor: pointer;
+
+        &--active {
+            background: var(--button-primary-default);
+            border-color: var(--button-primary-default);
+            color: var(--text-colored-background);
+        }
+    }
 
     &__account {
         display: flex;
@@ -769,6 +805,29 @@
         color: var(--text-prominent);
         line-height: 1.4;
         font-size: 1.2rem;
+    }
+
+    &__reset {
+        padding: 0.8rem;
+        border-top: 1px solid var(--general-section-1);
+        background: var(--general-main-1);
+    }
+
+    &__reset-button {
+        width: 100%;
+        border: 1px solid var(--status-warning);
+        background: transparent;
+        color: var(--status-warning);
+        border-radius: 0.8rem;
+        font-size: 1.2rem;
+        font-weight: 700;
+        padding: 0.8rem 1.2rem;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     }
 }
 

@@ -26,25 +26,6 @@ export const WS_SERVERS = {
 // Helper Functions
 // =============================================================================
 
-// Simple environment detection based on hostname
-const getCurrentEnvironment = (): 'staging' | 'production' => {
-    try {
-        const hostname = window.location.hostname;
-        // Check if hostname is localhost or matches any staging domain
-        const isStagingDomain = Object.values(STAGING_DOMAINS).some(domain =>
-            hostname.startsWith(domain.split('.')[0])
-        );
-
-        if (hostname.startsWith('localhost') || isStagingDomain) {
-            return 'staging';
-        }
-        return 'production';
-    } catch (error) {
-        console.error('Error detecting environment:', error);
-        return 'production'; // Safe fallback
-    }
-};
-
 // Helper to check if we're on production domains
 export const isProduction = () => {
     const hostname = window.location.hostname;
@@ -239,12 +220,12 @@ export const clearCSRFToken = (): void => {
     sessionStorage.removeItem('oauth_csrf_token_timestamp');
 };
 
-export const generateOAuthURL = async () => {
+export const generateOAuthURL = async (prompt?: string) => {
     try {
         // Use brand config for login URLs
         const environment = isProduction() ? 'production' : 'staging';
         const hostname = brandConfig?.platform.auth2_url?.[environment];
-        const clientId = process.env.CLIENT_ID || '32izC2lBT4MmiSNWuxq2l';
+        const clientId = process.env.CLIENT_ID || (brandConfig as any).platform?.client_id;
 
         if (hostname && clientId) {
             // Generate CSRF token for security
@@ -263,14 +244,25 @@ export const generateOAuthURL = async () => {
             // Build redirect URL
             const protocol = window.location.protocol;
             const host = window.location.host;
-            const redirectUrl = `${protocol}//${host}`;
-            const scopes = 'trade%20account_manage';
+            const redirectUrl = `${protocol}//${host}/`;
+            const scopes = 'trade';
 
             // Build OAuth URL with PKCE parameters
             // - state: CSRF token for security
             // - code_challenge: SHA-256 hash of code_verifier
             // - code_challenge_method: S256 (SHA-256)
-            const oauthUrl = `${hostname}auth?scope=${scopes}&response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUrl)}&state=${csrfToken}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+            let oauthUrl = `${hostname}auth?scope=${scopes}&response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUrl)}&state=${csrfToken}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+
+            // Optional: prompt parameter (e.g. 'registration' for signup flow)
+            if (prompt) {
+                oauthUrl += `&prompt=${encodeURIComponent(prompt)}`;
+            }
+
+            // Optional: legacy app_id for routing users on the Legacy Deriv API platform
+            const appId = process.env.APP_ID || (brandConfig as any).platform?.app_id;
+            if (appId) {
+                oauthUrl += `&app_id=${encodeURIComponent(appId)}`;
+            }
 
             return oauthUrl;
         }
@@ -280,20 +272,4 @@ export const generateOAuthURL = async () => {
 
     // Fallback to hardcoded URLs if brand config fails
     return ``;
-};
-
-export const generateSignupURL = () => {
-    try {
-        // Use brand config for signup URLs
-        const environment = getCurrentEnvironment();
-        const hostname = brandConfig?.brand_hostname?.[environment];
-
-        if (hostname) {
-            return `https://${hostname}/signup`;
-        }
-    } catch (error) {
-        console.error('Error accessing brand config:', error);
-    }
-
-    return '';
 };

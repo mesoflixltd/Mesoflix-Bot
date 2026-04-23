@@ -44,6 +44,10 @@ import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
+const DCircles = lazy(() => import('../dcircles'));
+const FreeBots = lazy(() => import('../freebots'));
+const AIHub = lazy(() => import('../ai-hub'));
+const RiskCalculator = lazy(() => import('../risk-calculator'));
 const Tutorial = lazy(() => import('../tutorials'));
 
 const AppWrapper = observer(() => {
@@ -77,7 +81,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'dcircles', 'freebots', 'ai-hub', 'risk-calculator', 'tutorial'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -287,9 +291,11 @@ const AppWrapper = observer(() => {
             setActiveTour('');
         }
 
-        // Prevent scrolling when tutorial tab is active (only on mobile)
+        // Prevent scrolling when specific tabs are active (only on mobile)
         const mainElement = document.querySelector('.main__container');
-        if (active_tab === DBOT_TABS.TUTORIAL && !isDesktop) {
+        const scrollLockedTabs = [DBOT_TABS.TUTORIAL, DBOT_TABS.RISK_CALCULATOR];
+        
+        if (scrollLockedTabs.includes(active_tab) && !isDesktop) {
             document.body.style.overflow = 'hidden';
             if (mainElement instanceof HTMLElement) {
                 mainElement.classList.add('no-scroll');
@@ -422,6 +428,82 @@ const AppWrapper = observer(() => {
                                     fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}
                                 >
                                     <ChartWrapper show_digits_stats={false} />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedObjectsColumnCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='var(--text-general)'
+                                        />
+                                        <Localize i18n_default_text='DCircles' />
+                                    </>
+                                }
+                                id='id-dcircles'
+                            >
+                                <Suspense
+                                    fallback={<ChunkLoader message={localize('Please wait, loading DCircles...')} />}
+                                >
+                                    <DCircles />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedPuzzlePieceTwoCaptionBoldIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='var(--text-general)'
+                                        />
+                                        <Localize i18n_default_text='FreeBots' />
+                                    </>
+                                }
+                                id='id-freebots'
+                            >
+                                <Suspense
+                                    fallback={<ChunkLoader message={localize('Please wait, loading FreeBots...')} />}
+                                >
+                                    <FreeBots />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedObjectsColumnCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='var(--text-general)'
+                                        />
+                                        <Localize i18n_default_text='AI Hub' />
+                                    </>
+                                }
+                                id='id-ai-hub'
+                            >
+                                <Suspense
+                                    fallback={<ChunkLoader message={localize('Please wait, loading AI Hub...')} />}
+                                >
+                                    <AIHub />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedPuzzlePieceTwoCaptionBoldIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='var(--text-general)'
+                                        />
+                                        <Localize i18n_default_text='Risk Calculator' />
+                                    </>
+                                }
+                                id='id-risk-calculator'
+                            >
+                                <Suspense
+                                    fallback={<ChunkLoader message={localize('Please wait, loading Risk Calculator...')} />}
+                                >
+                                    <RiskCalculator />
                                 </Suspense>
                             </div>
                             <div

@@ -12,14 +12,24 @@ import { TAccountSwitcher } from './common/types';
 import AccountInfoWrapper from './account-info-wrapper';
 import './account-switcher.scss';
 
+type TAccountGroup = 'real' | 'demo';
+
 const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState<TAccountGroup>('real');
+    const [isResettingBalance, setIsResettingBalance] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const { accountList, activeLoginid } = useApiBase();
     const { client, run_panel } = useStore() ?? {};
 
     const is_bot_running = run_panel?.is_running || api_base.is_running;
     const isSingleAccount = !accountList || accountList.length <= 1;
+
+    useEffect(() => {
+        if (activeAccount) {
+            setSelectedGroup(activeAccount.isVirtual ? 'demo' : 'real');
+        }
+    }, [activeAccount]);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -64,6 +74,65 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             }))
             .sort((a, b) => (a.isActive ? -1 : b.isActive ? 1 : 0));
     }, [accountList, activeLoginid]);
+
+    const groupedAccounts = useMemo(
+        () => ({
+            demo: formattedAccounts.filter(account => account.isVirtual),
+            real: formattedAccounts.filter(account => !account.isVirtual),
+        }),
+        [formattedAccounts]
+    );
+
+    const visibleAccounts = groupedAccounts[selectedGroup];
+
+    const handleResetDemoBalance = useCallback(async () => {
+        if (!activeLoginid) return;
+
+        try {
+            setIsResettingBalance(true);
+            
+            // Get valid OAuth token
+            const { OAuthTokenExchangeService } = await import('@/services/oauth-token-exchange.service');
+            const token = OAuthTokenExchangeService.getAccessToken();
+            
+            if (!token) {
+                throw new Error('Authentication token is missing. Please re-login.');
+            }
+
+            const appId = process.env.APP_ID || '36300';
+            const endpoint = `https://api.derivws.com/trading/v1/options/accounts/${activeLoginid}/reset-demo-balance`;
+            
+            const reqResponse = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Deriv-App-ID': String(appId),
+                },
+            });
+
+            const responseData = await reqResponse.json();
+
+            if (!reqResponse.ok || responseData.errors) {
+                const errorObj = responseData.errors?.[0];
+                const errorMessage = errorObj?.message || responseData.error_description || 'Unable to reset demo balance';
+                console.error('[AccountSwitcher] Reset response error:', responseData);
+                throw new Error(errorMessage);
+            }
+
+            // Immediately send a balance request to prompt a UI update
+            await api_base.api?.send({ balance: 1 });
+            client?.checkAndRegenerateWebSocket();
+            
+            // Show success
+            alert('Demo balance successfully reset to 10,000 USD');
+        } catch (error: any) {
+            console.error('[AccountSwitcher] Reset demo balance failed:', error);
+            alert(`Demo reset failed: ${error?.message || 'Unknown error. Check console.'}`);
+        } finally {
+            setIsResettingBalance(false);
+        }
+    }, [activeLoginid, client]);
 
     if (!activeAccount) return null;
 
@@ -141,7 +210,28 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             </AccountInfoWrapper>
             {isOpen && (
                 <div className='acc-dropdown' role='listbox'>
-                    {formattedAccounts.map(account => (
+                    <div className='acc-dropdown__group-tabs'>
+                        <button
+                            type='button'
+                            className={classNames('acc-dropdown__group-tab', {
+                                'acc-dropdown__group-tab--active': selectedGroup === 'real',
+                            })}
+                            onClick={() => setSelectedGroup('real')}
+                        >
+                            <Localize i18n_default_text='Real' />
+                        </button>
+                        <button
+                            type='button'
+                            className={classNames('acc-dropdown__group-tab', {
+                                'acc-dropdown__group-tab--active': selectedGroup === 'demo',
+                            })}
+                            onClick={() => setSelectedGroup('demo')}
+                        >
+                            <Localize i18n_default_text='Demo' />
+                        </button>
+                    </div>
+
+                    {visibleAccounts.map(account => (
                         <div
                             key={account.loginid}
                             role='option'
@@ -180,6 +270,21 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                             </Text>
                         </div>
                     ))}
+
+                    {selectedGroup === 'demo' && (
+                        <div className='acc-dropdown__reset'>
+                            <button
+                                type='button'
+                                className='acc-dropdown__reset-button'
+                                disabled={isResettingBalance || !isDemoAccount(activeLoginid ?? '')}
+                                onClick={handleResetDemoBalance}
+                            >
+                                <Localize
+                                    i18n_default_text={isResettingBalance ? 'Resetting...' : 'Reset demo balance'}
+                                />
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

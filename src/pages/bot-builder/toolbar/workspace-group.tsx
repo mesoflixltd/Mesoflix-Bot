@@ -61,7 +61,8 @@ const WorkspaceGroup = observer(() => {
                         </span>
                     }
                 />
-                <ToolbarIcon
+                {/* [AI] - Saving disabled as per user request to prevent strategy downloads */}
+                {/* <ToolbarIcon
                     popover_message={localize('Save')}
                     icon={
                         <span
@@ -73,7 +74,8 @@ const WorkspaceGroup = observer(() => {
                             <LabelPairedFloppyDiskMdRegularIcon />
                         </span>
                     }
-                />
+                /> */}
+                {/* [/AI] */}
                 <ToolbarIcon
                     popover_message={localize('Sort blocks')}
                     icon={

@@ -6,6 +6,12 @@ import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import OnboardTourHandler from '../tutorials/dbot-tours/onboarding-tour';
+import {
+    LabelPairedTiktokCaptionIcon,
+    LabelPairedTelegramCaptionIcon,
+    LabelPairedWhatsappCaptionIcon,
+    LabelPairedYoutubeCaptionIcon,
+} from '@deriv/quill-icons/LabelPaired';
 import Announcements from './announcements';
 import Cards from './cards';
 import InfoPanel from './info-panel';
@@ -38,6 +44,28 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                                 'tab__dashboard__header--listed': isDesktop && has_dashboard_strategies,
                             })}
                         >
+                            <div className='dashboard__social-links'>
+                                <a href='https://wa.me/254725666447' target='_blank' rel='noopener noreferrer' className='social-link social-link--whatsapp' title='WhatsApp'>
+                                    <div className='icon-wrapper'>
+                                        <LabelPairedWhatsappCaptionIcon width='24px' height='24px' fill='#25D366' />
+                                    </div>
+                                </a>
+                                <a href='https://t.me/mesoflix' target='_blank' rel='noopener noreferrer' className='social-link social-link--telegram' title='Telegram'>
+                                    <div className='icon-wrapper'>
+                                        <LabelPairedTelegramCaptionIcon width='24px' height='24px' fill='#0088cc' />
+                                    </div>
+                                </a>
+                                <a href='https://youtube.com' target='_blank' rel='noopener noreferrer' className='social-link social-link--youtube' title='YouTube'>
+                                    <div className='icon-wrapper'>
+                                        <LabelPairedYoutubeCaptionIcon width='24px' height='24px' fill='#FF0000' />
+                                    </div>
+                                </a>
+                                <a href='https://tiktok.com' target='_blank' rel='noopener noreferrer' className='social-link social-link--tiktok' title='TikTok'>
+                                    <div className='icon-wrapper'>
+                                        <LabelPairedTiktokCaptionIcon width='24px' height='24px' fill='#00F2EA' />
+                                    </div>
+                                </a>
+                            </div>
                             {!has_dashboard_strategies && (
                                 <Text
                                     className='title'

@@ -7,6 +7,7 @@ import { ErrorLogger } from '@/utils/error-logger';
 import { getInitialLanguage, localize } from '@deriv-com/translations';
 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
 /* [/AI] */
+import brandConfig from '../../brand.config.json';
 import RootStore from './root-store';
 
 export type TErrorWithStatus = Error & { status?: number; result?: { error: { message: string } } };
@@ -77,8 +78,8 @@ export default class GoogleDriveStore {
 
     setKey = () => {
         const { SCOPE, DISCOVERY_DOCS } = config().GOOGLE_DRIVE;
-        this.client_id = process.env.GD_CLIENT_ID;
-        this.app_id = process.env.GD_APP_ID;
+        this.client_id = process.env.GD_CLIENT_ID || (brandConfig as any).platform?.client_id;
+        this.app_id = process.env.GD_APP_ID || (brandConfig as any).platform?.app_id;
         this.api_key = process.env.GD_API_KEY;
         this.scope = SCOPE;
         this.discovery_docs = DISCOVERY_DOCS;

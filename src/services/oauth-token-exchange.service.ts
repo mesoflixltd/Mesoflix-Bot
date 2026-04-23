@@ -133,10 +133,18 @@ export class OAuthTokenExchangeService {
             // - client_id: your OAuth2 client ID
             // - code_verifier: the PKCE code verifier (proves we initiated the auth flow)
 
-            const clientId = process.env.CLIENT_ID || '32izC2lBT4MmiSNWuxq2l';
+            const clientId = process.env.CLIENT_ID || (brandConfig as any).platform?.client_id;
+            if (!clientId) {
+                ErrorLogger.error('OAuth', 'CLIENT_ID is not set in environment or brand config');
+                return {
+                    error: 'invalid_client',
+                    error_description: 'CLIENT_ID is not configured. Please check your configuration.',
+                };
+            }
+
             const protocol = window.location.protocol;
             const host = window.location.host;
-            const redirectUrl = `${protocol}//${host}`;
+            const redirectUrl = `${protocol}//${host}/`;
 
             const requestBody = new URLSearchParams({
                 grant_type: 'authorization_code',

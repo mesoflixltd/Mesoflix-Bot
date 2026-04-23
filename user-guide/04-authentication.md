@@ -90,26 +90,44 @@ The application uses **OAuth 2.0 with PKCE** (Proof Key for Code Exchange) for a
 
 ### Step-by-Step Implementation
 
-#### Step 1: Login Button Click
+#### Step 1: Login / Signup Button Click
 
 **File:** `src/components/layout/header/header.tsx`
 
+Both login and signup go through the same OAuth flow. The only difference is the optional `prompt` parameter.
+
 ```typescript
+// Login
 const handleLogin = useCallback(async () => {
     setIsAuthorizing(true);
-    const oauthUrl = await generateOAuthURL(); // Async - generates PKCE params
+    const oauthUrl = await generateOAuthURL(); // no prompt = login
     if (oauthUrl) {
         window.location.replace(oauthUrl);
+    } else {
+        setIsAuthorizing(false);
+    }
+}, [setIsAuthorizing]);
+
+// Signup — same flow, prompt=registration shows the registration UI
+const handleSignup = useCallback(async () => {
+    setIsAuthorizing(true);
+    const oauthUrl = await generateOAuthURL('registration');
+    if (oauthUrl) {
+        window.location.replace(oauthUrl);
+    } else {
+        setIsAuthorizing(false);
     }
 }, [setIsAuthorizing]);
 ```
+
+After signup the user is redirected back with `?code=...&state=...` — identical to login, handled by the same callback flow.
 
 #### Step 2: OAuth URL Generation with PKCE
 
 **File:** `src/components/shared/utils/config/config.ts`
 
 ```typescript
-export const generateOAuthURL = async () => {
+export const generateOAuthURL = async (prompt?: string) => {
     // Generate PKCE parameters
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
@@ -118,13 +136,19 @@ export const generateOAuthURL = async () => {
     storeCodeVerifier(codeVerifier);
 
     // Build OAuth URL
-    const oauthUrl = `${hostname}auth?` +
+    let oauthUrl = `${hostname}auth?` +
         `response_type=code&` +
         `client_id=${clientId}&` +
         `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
         `state=${csrfToken}&` +
         `code_challenge=${codeChallenge}&` +
         `code_challenge_method=S256`;
+
+    // 'registration' → shows signup UI on OAuth server
+    if (prompt) oauthUrl += `&prompt=${encodeURIComponent(prompt)}`;
+
+    // Legacy app_id routes users on the Legacy Deriv API platform
+    if (process.env.APP_ID) oauthUrl += `&app_id=${encodeURIComponent(process.env.APP_ID)}`;
 
     return oauthUrl;
 };
@@ -623,13 +647,16 @@ console.log('PKCE Verifier:', sessionStorage.getItem('oauth_code_verifier'));
 When clicking Login, check the URL for PKCE parameters:
 
 ```
-https://auth.deriv.com/oauth2/authorize?
+https://auth.deriv.com/oauth2/auth?
+    scope=trade%20account_manage&
     response_type=code&
     client_id=YOUR_CLIENT_ID&
     redirect_uri=https://localhost:8443/&
     state=CSRF_TOKEN&
     code_challenge=BASE64URL_HASH&        ← PKCE parameter
     code_challenge_method=S256            ← PKCE method
+    &prompt=registration                  ← signup only
+    &app_id=YOUR_APP_ID                   ← optional, legacy platform only
 ```
 
 > Note: The redirect URI points to the root URL (`/`), not a `/callback` path. The `App` component handles the OAuth response inline.
@@ -660,7 +687,8 @@ In the browser Network tab, look for the token exchange POST request:
 ### Manual Testing Checklist
 
 - [ ] Click Login - verify redirect to Deriv OAuth provider
-- [ ] Complete OAuth - verify redirect back to root URL (`/`) with `?code=...&state=...` params
+- [ ] Click Sign up - verify redirect to Deriv OAuth provider with `&prompt=registration` in URL
+- [ ] Complete OAuth (login or signup) - verify redirect back to root URL (`/`) with `?code=...&state=...` params
 - [ ] Check sessionStorage for `auth_info` with valid token
 - [ ] Check localStorage for `active_loginid`
 - [ ] Verify WebSocket connects with authenticated endpoint
