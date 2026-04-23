@@ -67,8 +67,8 @@ class APIBase {
     reconnection_attempts: number = 0;
 
     // Constants for timeouts - extracted magic numbers for better maintainability
-    private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
-    private readonly ENRICHMENT_TIMEOUT_MS = 10000; // 10 seconds
+    private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 30000; // Increased to 30 seconds
+    private readonly ENRICHMENT_TIMEOUT_MS = 15000; // Increased to 15 seconds
     private readonly MAX_RECONNECTION_ATTEMPTS = 5; // Maximum number of reconnection attempts before session reset
 
     // Prevent duplicate init calls
@@ -520,7 +520,10 @@ class APIBase {
         };
 
         const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
-        await Promise.all(streamsToSubscribe.map(subscribeToStream));
+        // Sequential subscription to avoid socket congestion/timeouts during handshake
+        for (const streamName of streamsToSubscribe) {
+            await subscribeToStream(streamName);
+        }
     }
 
     getActiveSymbols = async () => {
@@ -534,10 +537,13 @@ class APIBase {
         for (let attempt = 1; attempt <= ACTIVE_SYMBOLS_MAX_RETRIES; attempt++) {
             try {
                 const timeout = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
+                    setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS || 30000)
                 );
-
-                const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
+                
+                console.log(`[APIBase] Fetching active symbols (attempt ${attempt})...`);
+                // Use direct send instead of doUntilDone for initialization requests 
+                // to avoid being rejected by is_running check in recoverFromError.
+                const activeSymbolsPromise = this.api?.send({ active_symbols: 'brief' });
                 const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
                 const { active_symbols = [], error = {} } = apiResult as any;
 

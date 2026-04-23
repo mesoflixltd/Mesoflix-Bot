@@ -43,7 +43,8 @@ class APIMiddleware {
         const req_type = this.getRequestType(request);
         
         // Log outgoing request (masking sensitive data)
-        if (window.DERIV_API_LOGGING) {
+        const log_enabled = window.DERIV_API_LOGGING !== false; // Default to true if not explicitly false
+        if (log_enabled) {
             const log_request = { ...request };
             if (log_request.authorize) log_request.authorize = '***';
             console.log('%c[API Request]', 'color: #2196F3; font-weight: bold;', log_request);
@@ -53,7 +54,7 @@ class APIMiddleware {
         response_promise
             .then(res => {
                 // Log incoming response
-                if (window.DERIV_API_LOGGING) {
+                if (log_enabled) {
                     console.log('%c[API Response]', 'color: #4CAF50; font-weight: bold;', res);
                 }
 
@@ -63,7 +64,7 @@ class APIMiddleware {
                 }
             })
             .catch(error => {
-                if (window.DERIV_API_LOGGING) {
+                if (log_enabled) {
                     console.error('%c[API Error]', 'color: #F44336; font-weight: bold;', error);
                 }
             });
