@@ -217,24 +217,27 @@ class APIBase {
                         const originalOnMessage = this.api.onMessage.bind(this.api);
                         (this.api as any).onMessage = () => {
                             const observable = originalOnMessage();
-                            return {
-                                ...observable,
-                                subscribe: (observer: any) => {
-                                    const wrapper = (message: any) => {
-                                        // Wrap raw messages back into legacy { data } structure
-                                        const envelope = (message && typeof message === 'object' && 'data' in message) 
-                                            ? message 
-                                            : { data: message };
-                                        
-                                        if (typeof observer === 'function') {
-                                            observer(envelope);
-                                        } else if (observer && typeof observer.next === 'function') {
-                                            observer.next(envelope);
-                                        }
-                                    };
-                                    return observable.subscribe(wrapper);
+                            return new Proxy(observable, {
+                                get(target, prop, receiver) {
+                                    if (prop === 'subscribe') {
+                                        return (observerOrNext: any) => {
+                                            const wrapper = (message: any) => {
+                                                const envelope = (message && typeof message === 'object' && 'data' in message) 
+                                                    ? message 
+                                                    : { data: message };
+                                                
+                                                if (typeof observerOrNext === 'function') {
+                                                    observerOrNext(envelope);
+                                                } else if (observerOrNext && typeof observerOrNext.next === 'function') {
+                                                    observerOrNext.next(envelope);
+                                                }
+                                            };
+                                            return target.subscribe(wrapper);
+                                        };
+                                    }
+                                    return Reflect.get(target, prop, receiver);
                                 }
-                            } as any;
+                            });
                         };
                     }
 
@@ -286,6 +289,11 @@ class APIBase {
                             // Bridge stream messages to global observer to ensure UI and Trade Engine stay in sync
                             if (msg_type === 'proposal_open_contract') {
                                 const contract = message.proposal_open_contract;
+                                
+                                if ((window as any).DERIV_API_LOGGING !== false) {
+                                    console.log(`%c[OpenContract] POC ID: ${contract?.contract_id}, Sold: ${contract?.is_sold}`, 'color: #00BCD4; font-weight: bold;');
+                                }
+                                
                                 if (contract) {
                                     // Track subscription ID to prevent accidental 'forget_all'
                                     if (message.subscription?.id) {
