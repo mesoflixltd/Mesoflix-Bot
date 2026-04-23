@@ -317,15 +317,25 @@ class APIBase {
                                     }
                                 }
                             } else if (msg_type === 'buy') {
-                                // AUTO LOCK-ON: When a purchase is made, immediately subscribe to that specific contract ID
+                                // FOCUS MODE: When a purchase is made, clear old streams and focus on the new one
                                 const contract_id = message.buy?.contract_id;
                                 if (contract_id) {
-                                    console.log(`%c[BRIDGE] New Trade Detected: ${contract_id}. Subscribing...`, 'color: #f44336; font-weight: bold;');
-                                    this.api.send({
-                                        proposal_open_contract: 1,
-                                        contract_id: contract_id,
-                                        subscribe: 1
-                                    }).catch((e: any) => console.error('[BRIDGE] Auto-subscribe failed:', e));
+                                    console.log(`%c[BRIDGE] Focus Mode: Targeting ${contract_id}...`, 'color: #f44336; font-weight: bold;');
+                                    
+                                    // 1. Clear protected IDs so the firewall allows the forget_all
+                                    this.protected_subscription_ids.clear();
+                                    
+                                    // 2. Forget previous POC subscriptions
+                                    this.api.forgetAll('proposal_open_contract').catch(() => {});
+                                    
+                                    // 3. Subscribe specifically to the new contract
+                                    setTimeout(() => {
+                                        this.api.send({
+                                            proposal_open_contract: 1,
+                                            contract_id: contract_id,
+                                            subscribe: 1
+                                        }).catch((e: any) => console.error('[BRIDGE] Focus subscription failed:', e));
+                                    }, 500); // Small delay to ensure forget_all is processed
                                 }
                             } else if (msg_type === 'transaction') {
                                 globalObserver.emit('bot.transaction', message.transaction);
