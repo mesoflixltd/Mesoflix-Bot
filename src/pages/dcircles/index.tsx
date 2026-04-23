@@ -60,19 +60,23 @@ const buildSeedWindow = (): number[] => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 const DCircles = observer(() => {
+    // Load persisted market if available
+    const persisted = typeof window !== 'undefined' ? localStorage.getItem('dcircles_selected_market') : null;
+    const initialSymbol = persisted && persisted.length ? persisted : 'R_10';
     const wsRef            = useRef<WebSocket | null>(null);
     const subIdRef         = useRef<string | null>(null);
-    const selectedSymRef   = useRef('R_10');
+    const selectedSymbolRef   = useRef(initialSymbol);
     const flashTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [symbols,       setSymbols]       = useState<TSymbol[]>(FALLBACK_SYMBOLS);
-    const [selectedSym,   setSelectedSym]   = useState('R_10');
+    const [selectedSymbol, setSelectedSymbol] = useState<string>(initialSymbol);
+    const [livePrice,     setLivePrice]     = useState<string | number>('—');
     const [digitsWindow,  setDigitsWindow]  = useState<number[]>(buildSeedWindow);
     const [liveLoading,   setLiveLoading]   = useState(false);
     const [lastDigit,     setLastDigit]     = useState<number | null>(null);
     const [connStatus,    setConnStatus]    = useState<'connecting'|'connected'|'closed'|'error'>('connecting');
 
-    selectedSymRef.current = selectedSym;
+    selectedSymbolRef.current = selectedSymbol;
 
     const send = useCallback((payload: Record<string, unknown>) => {
         const ws = wsRef.current;
@@ -109,10 +113,10 @@ const DCircles = observer(() => {
                               .sort((a, b) => a.display_name.localeCompare(b.display_name))
                         : FALLBACK_SYMBOLS;
                     setSymbols(fetched);
-                    const target = fetched.find(s => s.symbol === selectedSymRef.current)?.symbol
+                    const target = fetched.find(s => s.symbol === selectedSymbolRef.current)?.symbol
                         ?? fetched.find(s => s.symbol === 'R_10')?.symbol
                         ?? fetched[0]?.symbol;
-                    if (target) { selectedSymRef.current = target; setSelectedSym(target); subscribeToSymbol(target); }
+                    if (target) { selectedSymbolRef.current = target; setSelectedSymbol(target); subscribeToSymbol(target); }
                 }
 
                 if (msg_type === 'history' && req_id === REQ_TICKS) {
@@ -128,6 +132,7 @@ const DCircles = observer(() => {
                     if (quote !== undefined) {
                         const digit = getLastDigit(quote);
                         setDigitsWindow(prev => [...prev.slice(-999), digit]);
+                        setLivePrice(quote);
                         setLastDigit(digit);
                         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
                         flashTimerRef.current = setTimeout(() => setLastDigit(null), 700);
@@ -147,9 +152,10 @@ const DCircles = observer(() => {
     }, [send, subscribeToSymbol]);
 
     const handleSymbolChange = (symbol: string) => {
-        if (!symbol || symbol === selectedSymRef.current) return;
-        selectedSymRef.current = symbol;
-        setSelectedSym(symbol);
+        if (!symbol || symbol === selectedSymbolRef.current) return;
+        selectedSymbolRef.current = symbol;
+        setSelectedSymbol(symbol);
+        localStorage.setItem('dcircles_selected_market', symbol);
         subscribeToSymbol(symbol);
     };
 
@@ -166,6 +172,7 @@ const DCircles = observer(() => {
     }, [digitStats]);
 
     const isOffline = connStatus === 'closed' || connStatus === 'error';
+    const formattedPrice = typeof livePrice === 'number' ? livePrice.toFixed(2) : livePrice;
     const totalTicks = digitsWindow.length;
 
     return (
@@ -179,6 +186,10 @@ const DCircles = observer(() => {
                     <p className='dcircles-page__subtitle'>
                         <Localize i18n_default_text='Live last-digit distribution across 1 000 ticks' />
                     </p>
+                </div>
+                <div className='dcircles-page__price'>
+                    <span className='dcircles-page__price-label'><Localize i18n_default_text='Live price' /></span>
+                    <span className='dcircles-page__price-value'>{formattedPrice}</span>
                 </div>
                 <div className={`dcircles-page__status dcircles-page__status--${connStatus}`}>
                     <span className='dcircles-page__status-dot' />
