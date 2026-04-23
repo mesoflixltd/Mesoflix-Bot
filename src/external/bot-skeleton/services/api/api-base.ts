@@ -249,18 +249,16 @@ class APIBase {
                             return `API Logging is now ${enable ? 'ON' : 'OFF'}. Check the console for incoming/outgoing messages.`;
                         };
 
-                        // ADDED: Raw WebSocket listener for absolute visibility
+                        // ADDED: Raw WebSocket listener (only logs if DERIV_API_LOGGING is true)
                         this.api.connection.addEventListener('message', (event: MessageEvent) => {
                             try {
-                                const data = JSON.parse(event.data);
-                                // Default to true if not explicitly false to ensure visibility during troubleshooting
-                                const log_enabled = (window as any).DERIV_API_LOGGING !== false;
-                                if (log_enabled && data.msg_type !== 'time' && data.msg_type !== 'balance') {
-                                    console.log('%c[RAW WS Message]', 'color: #795548; font-weight: bold;', data);
+                                if ((window as any).DERIV_API_LOGGING) {
+                                    const data = JSON.parse(event.data);
+                                    if (data.msg_type !== 'time' && data.msg_type !== 'balance') {
+                                        console.log('%c[RAW WS Message]', 'color: #795548; font-weight: bold;', data);
+                                    }
                                 }
-                            } catch (e) {
-                                // Ignore non-JSON
-                            }
+                            } catch (e) { }
                         });
 
                         // Attach a single onMessage listener ONLY for real-time balance updates.
@@ -274,11 +272,8 @@ class APIBase {
                             // DerivAPIBasic wraps messages as { name, data } or directly as the data object.
                             const message = envelope?.data ?? envelope ?? {};
                             
-                            // Default to true if not explicitly false
-                            const log_enabled = (window as any).DERIV_API_LOGGING !== false;
-                            
-                            // Log all incoming messages if debugging is enabled
-                            if (log_enabled) {
+                            // Log only if explicitly enabled
+                            if ((window as any).DERIV_API_LOGGING) {
                                 if (message.msg_type !== 'balance' && message.msg_type !== 'time') {
                                     console.log('%c[WS Message]', 'color: #9C27B0; font-weight: bold;', message);
                                 }
