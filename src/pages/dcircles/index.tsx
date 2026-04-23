@@ -102,8 +102,8 @@ const DCircles = observer(() => {
     );
 
     useEffect(() => {
-        // Correct Deriv public WebSocket endpoint
-        const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1');
+        // Public read-only market data endpoint — no auth required
+        const ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
         wsRef.current = ws;
         setConnectionStatus('connecting');
 
@@ -111,7 +111,6 @@ const DCircles = observer(() => {
             setConnectionStatus('connected');
             sendMessage({
                 active_symbols: 'brief',
-                product_type: 'basic',
                 req_id: REQ_IDS.ACTIVE_SYMBOLS,
             });
         };
