@@ -219,6 +219,18 @@ class APIBase {
                             return `API Logging is now ${enable ? 'ON' : 'OFF'}. Check the console for incoming/outgoing messages.`;
                         };
 
+                        // ADDED: Raw WebSocket listener for absolute visibility
+                        this.api.connection.addEventListener('message', (event: MessageEvent) => {
+                            try {
+                                const data = JSON.parse(event.data);
+                                if ((window as any).DERIV_API_LOGGING && data.msg_type !== 'time' && data.msg_type !== 'balance') {
+                                    console.log('%c[RAW WS Message]', 'color: #795548; font-weight: bold;', data);
+                                }
+                            } catch (e) {
+                                // Ignore non-JSON
+                            }
+                        });
+
                         // Attach a single onMessage listener ONLY for real-time balance updates.
                         // All other stream handling (proposal_open_contract, transaction) is done
                         // natively by the trade engine classes (OpenContract.js, etc.) via their

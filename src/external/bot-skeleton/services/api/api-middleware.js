@@ -43,10 +43,16 @@ class APIMiddleware {
         const req_type = this.getRequestType(request);
         
         // Log outgoing request (masking sensitive data)
-        const log_enabled = window.DERIV_API_LOGGING !== false; // Default to true if not explicitly false
+        const log_enabled = (window as any).DERIV_API_LOGGING !== false; // Default to true if not explicitly false
         if (log_enabled) {
             const log_request = { ...request };
             if (log_request.authorize) log_request.authorize = '***';
+            
+            // Detail forget_all contents for troubleshooting
+            if (log_request.forget_all && Array.isArray(log_request.forget_all)) {
+                console.log('%c[API Request] forget_all array:', 'color: #FF5722; font-style: italic;', log_request.forget_all);
+            }
+            
             console.log('%c[API Request]', 'color: #2196F3; font-weight: bold;', log_request);
         }
 
