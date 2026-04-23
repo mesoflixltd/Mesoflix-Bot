@@ -74,7 +74,34 @@
         margin-top: 2rem;
         color: var(--text-less-prominent);
         font-size: 1.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
     }
+
+    &__spinner {
+        width: 1.6rem;
+        height: 1.6rem;
+        border: 3px solid var(--general-section-1);
+        border-top-color: var(--brand-red-coral, #ff444f);
+        border-radius: 50%;
+        animation: dcircles-spin 0.7s linear infinite;
+        flex-shrink: 0;
+    }
+
+    &__offline-banner {
+        background: rgba(255, 68, 79, 0.1);
+        border: 1px solid rgba(255, 68, 79, 0.3);
+        border-radius: 0.8rem;
+        padding: 0.8rem 1.2rem;
+        color: #ff444f;
+        font-size: 1.2rem;
+        margin-bottom: 1.4rem;
+    }
+}
+
+@keyframes dcircles-spin {
+    to { transform: rotate(360deg); }
 }
 
 .dcircles-grid {

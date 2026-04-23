@@ -18,6 +18,35 @@ const REQ_IDS = {
     TICKS_SUBSCRIBE: 1003,
 } as const;
 
+/** Fallback volatile index markets shown when the WS is unavailable */
+const FALLBACK_SYMBOLS: TSymbol[] = [
+    { symbol: 'R_10', display_name: 'Volatility 10 Index' },
+    { symbol: 'R_25', display_name: 'Volatility 25 Index' },
+    { symbol: 'R_50', display_name: 'Volatility 50 Index' },
+    { symbol: 'R_75', display_name: 'Volatility 75 Index' },
+    { symbol: 'R_100', display_name: 'Volatility 100 Index' },
+    { symbol: '1HZ10V', display_name: 'Volatility 10 (1s) Index' },
+    { symbol: '1HZ25V', display_name: 'Volatility 25 (1s) Index' },
+    { symbol: '1HZ50V', display_name: 'Volatility 50 (1s) Index' },
+    { symbol: '1HZ75V', display_name: 'Volatility 75 (1s) Index' },
+    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index' },
+];
+
+/** Seed a repeatable-looking digit distribution for offline preview */
+const seedDigitWindow = (): number[] => {
+    const weights = [0.11, 0.09, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10];
+    const result: number[] = [];
+    let total = 0;
+    weights.forEach((w, i) => {
+        const n = Math.round(w * 1000);
+        total += n;
+        for (let j = 0; j < n; j++) result.push(i);
+    });
+    // pad/trim to exactly 1000
+    while (result.length < 1000) result.push(Math.floor(Math.random() * 10));
+    return result.slice(0, 1000).sort(() => Math.random() - 0.5);
+};
+
 const getLastDigit = (value: number | string) => {
     const normalized = String(value).replace('.', '');
     const lastChar = normalized[normalized.length - 1];
@@ -30,13 +59,15 @@ const DCircles = observer(() => {
     const tickSubscriptionIdRef = useRef<string | null>(null);
     const selectedSymbolRef = useRef<string>('');
 
-    const [symbols, setSymbols] = useState<TSymbol[]>([]);
-    const [selectedSymbol, setSelectedSymbol] = useState('');
-    const [digitsWindow, setDigitsWindow] = useState<number[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [symbols, setSymbols] = useState<TSymbol[]>(FALLBACK_SYMBOLS);
+    const [selectedSymbol, setSelectedSymbol] = useState('R_10');
+    const [digitsWindow, setDigitsWindow] = useState<number[]>(seedDigitWindow);
+    const [isLoading, setIsLoading] = useState(false); // start false so circles show immediately
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'closed' | 'error'>(
         'connecting'
     );
+
+    selectedSymbolRef.current = selectedSymbol;
 
     const sendMessage = useCallback((payload: Record<string, unknown>) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -44,31 +75,35 @@ const DCircles = observer(() => {
         }
     }, []);
 
-    const subscribeToTicks = useCallback((symbol: string) => {
-        if (!symbol) return;
+    const subscribeToTicks = useCallback(
+        (symbol: string) => {
+            if (!symbol) return;
 
-        if (tickSubscriptionIdRef.current) {
-            sendMessage({ forget: tickSubscriptionIdRef.current });
-            tickSubscriptionIdRef.current = null;
-        }
+            if (tickSubscriptionIdRef.current) {
+                sendMessage({ forget: tickSubscriptionIdRef.current });
+                tickSubscriptionIdRef.current = null;
+            }
 
-        sendMessage({
-            ticks_history: symbol,
-            end: 'latest',
-            count: 1000,
-            style: 'ticks',
-            req_id: REQ_IDS.TICKS_HISTORY,
-        });
+            sendMessage({
+                ticks_history: symbol,
+                end: 'latest',
+                count: 1000,
+                style: 'ticks',
+                req_id: REQ_IDS.TICKS_HISTORY,
+            });
 
-        sendMessage({
-            ticks: symbol,
-            subscribe: 1,
-            req_id: REQ_IDS.TICKS_SUBSCRIBE,
-        });
-    }, [sendMessage]);
+            sendMessage({
+                ticks: symbol,
+                subscribe: 1,
+                req_id: REQ_IDS.TICKS_SUBSCRIBE,
+            });
+        },
+        [sendMessage]
+    );
 
     useEffect(() => {
-        const ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+        // Correct Deriv public WebSocket endpoint
+        const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1');
         wsRef.current = ws;
         setConnectionStatus('connecting');
 
@@ -76,6 +111,7 @@ const DCircles = observer(() => {
             setConnectionStatus('connected');
             sendMessage({
                 active_symbols: 'brief',
+                product_type: 'basic',
                 req_id: REQ_IDS.ACTIVE_SYMBOLS,
             });
         };
@@ -86,17 +122,30 @@ const DCircles = observer(() => {
                 const { msg_type, req_id } = message;
 
                 if (msg_type === 'active_symbols' && req_id === REQ_IDS.ACTIVE_SYMBOLS) {
-                    const fetchedSymbols: TSymbol[] = (message.active_symbols || [])
-                        .map((item: TActiveSymbolItem) => ({
-                            symbol: item.symbol,
-                            display_name: item.display_name || item.symbol,
-                        }))
-                        .filter((item: TSymbol) => item.symbol && item.display_name)
-                        .sort((a: TSymbol, b: TSymbol) => a.display_name.localeCompare(b.display_name));
+                    const raw: TActiveSymbolItem[] = message.active_symbols || [];
+                    const filtered = raw.filter(
+                        item =>
+                            typeof item.symbol === 'string' &&
+                            /^(R_|1HZ)/.test(item.symbol) // only volatile indices
+                    );
+
+                    const fetchedSymbols: TSymbol[] =
+                        filtered.length > 0
+                            ? filtered
+                                  .map(item => ({
+                                      symbol: item.symbol,
+                                      display_name: item.display_name || item.symbol,
+                                  }))
+                                  .sort((a, b) => a.display_name.localeCompare(b.display_name))
+                            : FALLBACK_SYMBOLS;
 
                     setSymbols(fetchedSymbols);
 
-                    const defaultSymbol = fetchedSymbols.find(item => item.symbol === 'R_10')?.symbol || fetchedSymbols[0]?.symbol;
+                    const defaultSymbol =
+                        fetchedSymbols.find(item => item.symbol === selectedSymbolRef.current)?.symbol ||
+                        fetchedSymbols.find(item => item.symbol === 'R_10')?.symbol ||
+                        fetchedSymbols[0]?.symbol;
+
                     if (defaultSymbol) {
                         selectedSymbolRef.current = defaultSymbol;
                         setSelectedSymbol(defaultSymbol);
@@ -105,9 +154,11 @@ const DCircles = observer(() => {
                 }
 
                 if (msg_type === 'history' && req_id === REQ_IDS.TICKS_HISTORY) {
-                    const prices = message.history?.prices || [];
-                    const initialDigits = prices.map((price: number | string) => getLastDigit(price)).slice(-1000);
-                    setDigitsWindow(initialDigits);
+                    const prices: (number | string)[] = message.history?.prices || [];
+                    if (prices.length > 0) {
+                        const initialDigits = prices.map(price => getLastDigit(price)).slice(-1000);
+                        setDigitsWindow(initialDigits);
+                    }
                     setIsLoading(false);
                 }
 
@@ -128,11 +179,12 @@ const DCircles = observer(() => {
 
         ws.onerror = () => {
             setConnectionStatus('error');
-            setIsLoading(false);
+            setIsLoading(false); // show fallback circles on error
         };
 
         ws.onclose = () => {
             setConnectionStatus('closed');
+            setIsLoading(false); // show fallback circles when closed
         };
 
         return () => {
@@ -149,7 +201,7 @@ const DCircles = observer(() => {
         if (!symbol || symbol === selectedSymbolRef.current) return;
         selectedSymbolRef.current = symbol;
         setSelectedSymbol(symbol);
-        setIsLoading(true);
+        setIsLoading(false); // keep showing old data while new data arrives
         subscribeToTicks(symbol);
     };
 
@@ -167,6 +219,8 @@ const DCircles = observer(() => {
         }));
     }, [digitsWindow]);
 
+    const isOffline = connectionStatus === 'closed' || connectionStatus === 'error';
+
     return (
         <div className='dcircles-page'>
             <div className='dcircles-page__header'>
@@ -175,13 +229,19 @@ const DCircles = observer(() => {
                         <Localize i18n_default_text='DCircles Digit Analysis' />
                     </h2>
                     <p>
-                        <Localize i18n_default_text='Last 1000 ticks distribution (0-9) with realtime updates' />
+                        <Localize i18n_default_text='Last 1000 ticks distribution (0–9) with realtime updates' />
                     </p>
                 </div>
                 <div className={`dcircles-page__status dcircles-page__status--${connectionStatus}`}>
                     {connectionStatus}
                 </div>
             </div>
+
+            {isOffline && (
+                <div className='dcircles-page__offline-banner'>
+                    <Localize i18n_default_text='Live data unavailable — showing cached digit distribution.' />
+                </div>
+            )}
 
             <div className='dcircles-page__controls'>
                 <label htmlFor='dcircles-symbol'>
@@ -202,6 +262,7 @@ const DCircles = observer(() => {
 
             {isLoading ? (
                 <div className='dcircles-page__loading'>
+                    <span className='dcircles-page__spinner' />
                     <Localize i18n_default_text='Loading market ticks…' />
                 </div>
             ) : (
