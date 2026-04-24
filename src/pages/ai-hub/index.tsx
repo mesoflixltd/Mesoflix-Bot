@@ -1,38 +1,186 @@
+import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
+import './ai-hub.scss';
 
-const AIHub = observer(() => {
-    return (
-        <div className='ai-hub-page' style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            height: '100%',
-            background: 'var(--general-main-1)'
-        }}>
-            <div className='coming-soon-card' style={{
-                textAlign: 'center',
-                padding: '4rem',
-                background: 'var(--general-section-1)',
-                borderRadius: '2.4rem',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                maxWidth: '400px'
-            }}>
-                <h1 style={{ fontSize: '3.2rem', marginBottom: '1.6rem', color: 'var(--text-prominent)' }}>AI Hub</h1>
-                <p style={{ fontSize: '1.6rem', color: 'var(--text-less-prominent)', lineHeight: '1.5' }}>
-                    Elevate your trading with machine learning and automated signals. Feature launching in late 2026.
-                </p>
-                <div style={{ 
-                    marginTop: '2.4rem', 
-                    padding: '0.8rem 1.6rem', 
-                    background: 'var(--brand-red-coral)', 
-                    color: 'white',
-                    borderRadius: '2rem',
-                    display: 'inline-block',
-                    fontWeight: 'bold'
-                }}>
-                    Coming Soon
-                </div>
+// ─── Sub-page components ──────────────────────────────────────────────────────
+
+const AIScannerPage = () => (
+    <div className='aihub-subpage aihub-subpage--scanner'>
+        <div className='aihub-subpage__hero'>
+            <div className='aihub-subpage__hero-icon'>🔍</div>
+            <h2>AI Scanner</h2>
+            <p>Real-time pattern recognition across multiple markets. The scanner monitors digit distributions, streak patterns, and statistical anomalies to surface high-probability trade opportunities.</p>
+            <div className='aihub-badge aihub-badge--live'>● Live Engine — Coming Soon</div>
+        </div>
+
+        <div className='aihub-features-grid'>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>📊</div>
+                <h3>Digit Bias Detection</h3>
+                <p>Identifies digits that are statistically over or under-represented based on rolling window analysis.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
             </div>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>🔥</div>
+                <h3>Hot Zone Alerts</h3>
+                <p>Notifies you when a market enters a statistically significant run — even, odd, rise, or fall clusters.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
+            </div>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>⚡</div>
+                <h3>Momentum Signals</h3>
+                <p>Tracks price velocity across synthetic indices to detect acceleration patterns before they peak.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
+            </div>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>🎯</div>
+                <h3>Entry Score</h3>
+                <p>A 0–100 confidence score aggregated from all active signals, helping you decide when to trade.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
+            </div>
+        </div>
+    </div>
+);
+
+const BulkTradingPage = () => (
+    <div className='aihub-subpage aihub-subpage--bulk'>
+        <div className='aihub-subpage__hero'>
+            <div className='aihub-subpage__hero-icon'>⚡</div>
+            <h2>Bulk Trading</h2>
+            <p>Execute multiple trades simultaneously across different markets and strategies. Set your parameters once and let the engine run a full session automatically.</p>
+            <div className='aihub-badge aihub-badge--beta'>● Beta — Coming Soon</div>
+        </div>
+
+        <div className='aihub-features-grid'>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>🔁</div>
+                <h3>Multi-Market Execution</h3>
+                <p>Run trades on R_10, R_25, R_50 and more at the same time with individual stake and payout settings.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
+            </div>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>🛡️</div>
+                <h3>Session Risk Cap</h3>
+                <p>Define a maximum loss per session. The engine automatically stops all active trades when the cap is hit.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
+            </div>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>📋</div>
+                <h3>Trade Queue</h3>
+                <p>Build a queue of trade instructions that execute in sequence or in parallel based on market conditions.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
+            </div>
+            <div className='aihub-feature-card'>
+                <div className='aihub-feature-card__icon'>📈</div>
+                <h3>Auto Compounding</h3>
+                <p>Automatically scale up your stake based on win streaks and scale down after losses to protect capital.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
+            </div>
+        </div>
+    </div>
+);
+
+const UltimateTraderPage = () => (
+    <div className='aihub-subpage aihub-subpage--ultimate'>
+        <div className='aihub-subpage__hero'>
+            <div className='aihub-subpage__hero-icon'>🏆</div>
+            <h2>Ultimate Trader</h2>
+            <p>The complete autonomous trading suite. Combines AI signals, bulk execution, and adaptive risk management into one command center. Set your goal and let it trade.</p>
+            <div className='aihub-badge aihub-badge--pro'>★ Pro Feature — Coming Soon</div>
+        </div>
+
+        <div className='aihub-features-grid'>
+            <div className='aihub-feature-card aihub-feature-card--gold'>
+                <div className='aihub-feature-card__icon'>🧠</div>
+                <h3>AI Autopilot</h3>
+                <p>The system reads live market data, selects the optimal trade type, enters and exits automatically based on your pre-set risk profile.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pro'>Pro</div>
+            </div>
+            <div className='aihub-feature-card aihub-feature-card--gold'>
+                <div className='aihub-feature-card__icon'>🎯</div>
+                <h3>Goal-Based Sessions</h3>
+                <p>Set a profit target and a stop-loss. The engine runs until one is hit, then sends you a full session report.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pro'>Pro</div>
+            </div>
+            <div className='aihub-feature-card aihub-feature-card--gold'>
+                <div className='aihub-feature-card__icon'>📡</div>
+                <h3>Live Strategy Feed</h3>
+                <p>Receive strategy updates from Mesoflix's AI model trained on millions of synthetic index ticks.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pro'>Pro</div>
+            </div>
+            <div className='aihub-feature-card aihub-feature-card--gold'>
+                <div className='aihub-feature-card__icon'>📊</div>
+                <h3>Performance Dashboard</h3>
+                <p>A full session analytics panel — win rate, ROI, best hours, best markets, and equity curve.</p>
+                <div className='aihub-feature-card__status aihub-feature-card__status--pro'>Pro</div>
+            </div>
+        </div>
+
+        <div className='aihub-cta'>
+            <div className='aihub-cta__text'>
+                <h3>Be the First to Access</h3>
+                <p>Ultimate Trader is currently in closed development. Join the waitlist to get early access when it launches.</p>
+            </div>
+            <a
+                className='aihub-cta__btn'
+                href='https://wa.me/254725666447?text=Hi!%20I%20want%20early%20access%20to%20the%20Mesoflix%20Ultimate%20Trader.'
+                target='_blank'
+                rel='noreferrer'
+            >
+                Join the Waitlist →
+            </a>
+        </div>
+    </div>
+);
+
+// ─── Tab definitions ──────────────────────────────────────────────────────────
+type TTab = 'scanner' | 'bulk' | 'ultimate';
+
+const TABS: { id: TTab; label: string; icon: string; accent: string }[] = [
+    { id: 'scanner',  label: 'AI Scanner',      icon: '🔍', accent: '#00b4ff' },
+    { id: 'bulk',     label: 'Bulk Trading',     icon: '⚡', accent: '#7f5cff' },
+    { id: 'ultimate', label: 'Ultimate Trader',  icon: '🏆', accent: '#f5a623' },
+];
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const AIHub = observer(() => {
+    const [activeTab, setActiveTab] = useState<TTab>('scanner');
+
+    return (
+        <div className='aihub-page'>
+
+            {/* ─── Header ─── */}
+            <div className='aihub-header'>
+                <div className='aihub-header__text'>
+                    <h1>AI Hub</h1>
+                    <p>Your intelligent trading command centre — powered by machine learning and real-time market data.</p>
+                </div>
+                <div className='aihub-header__badge'>Mesoflix Intelligence</div>
+            </div>
+
+            {/* ─── Tab Bar ─── */}
+            <div className='aihub-tabs'>
+                {TABS.map(tab => (
+                    <button
+                        key={tab.id}
+                        className={`aihub-tab ${activeTab === tab.id ? 'aihub-tab--active' : ''}`}
+                        style={{ '--tab-accent': tab.accent } as React.CSSProperties}
+                        onClick={() => setActiveTab(tab.id)}
+                    >
+                        <span className='aihub-tab__icon'>{tab.icon}</span>
+                        <span className='aihub-tab__label'>{tab.label}</span>
+                        {activeTab === tab.id && <span className='aihub-tab__indicator' />}
+                    </button>
+                ))}
+            </div>
+
+            {/* ─── Sub-page content ─── */}
+            <div className='aihub-content'>
+                {activeTab === 'scanner'  && <AIScannerPage />}
+                {activeTab === 'bulk'     && <BulkTradingPage />}
+                {activeTab === 'ultimate' && <UltimateTraderPage />}
+            </div>
+
         </div>
     );
 });
