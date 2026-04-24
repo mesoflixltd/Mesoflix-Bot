@@ -352,83 +352,60 @@ const BulkTradingPage: React.FC = observer(() => {
                 barrier
             };
 
-            // 2. Fetch Unique Proposals (Forced via Passthrough to avoid API caching)
-            console.log(`[BulkTrade] Requesting ${bulkCount} unique proposals...`);
-            const proposalPromises = [];
-            for (let i = 0; i < bulkCount; i++) {
-                // Add passthrough to ensure unique IDs from server
-                proposalPromises.push(api_base.api.send({ 
-                    ...baseProposal, 
-                    passthrough: { bulk_index: i },
-                    req_id: 2000 + i 
-                }));
-            }
-            const proposalResponses = await Promise.all(proposalPromises);
+            // 2. Execute Direct Batch Buy (Bypasses proposal/caching issues)
+            console.log(`[BulkTrade] Executing direct batch-buy for ${bulkCount} positions...`);
             
-            const validProposals = proposalResponses.map((res, i) => {
+            const buyPromises = [];
+            for (let i = 0; i < bulkCount; i++) {
+                // We use "buy: 1" with parameters to bypass the need for a proposal ID
+                const buyReq = {
+                    buy: '1',
+                    price: currentStake * 2, // Max price willing to pay (usually twice the stake is safe)
+                    parameters: {
+                        amount: currentStake,
+                        basis: 'stake',
+                        contract_type,
+                        currency: authData$.value?.currency || 'USD',
+                        duration: 1,
+                        duration_unit: 't',
+                        symbol: currentSymbol,
+                        barrier: barrier ? barrier.toString() : undefined
+                    },
+                    subscribe: 1,
+                    req_id: 3000 + i
+                };
+                buyPromises.push(api_base.api.send(buyReq));
+            }
+
+            console.log(`[BulkTrade] Sending ${bulkCount} parallel buy requests...`);
+            const buyResponses = await Promise.all(buyPromises);
+
+            const newTrades: ITradeResult[] = buyResponses.map((res, i) => {
                 if (res.error) {
-                    console.error(`[BulkTrade] Proposal ${i} failed:`, res.error.message);
+                    console.error(`[BulkTrade] Position ${i + 1} failed:`, res.error.message);
                     return null;
                 }
-                return { id: res.proposal.id, price: Number(res.proposal.ask_price) };
-            }).filter(p => p !== null);
-
-            if (validProposals.length === 0) {
-                const firstErr = proposalResponses.find(r => r.error)?.error?.message;
-                throw new Error(firstErr || 'Failed to obtain trading proposals');
-            }
-
-            console.log(`[BulkTrade] Obtained ${validProposals.length} unique proposals. Sequential execution starting...`);
-
-            // 3. Sequential Execution with tiny staggered delay (Stops race conditions)
-            const newTrades: ITradeResult[] = [];
-            for (let i = 0; i < validProposals.length; i++) {
-                const prop = validProposals[i];
-                try {
-                    console.log(`[BulkTrade] Buying Position ${i + 1}/${validProposals.length} (ID: ${prop.id.slice(0, 8)}...)`);
-                    
-                    const buyRes = await api_base.api.send({
-                        buy: prop.id,
-                        price: prop.price,
-                        subscribe: 1,
-                        req_id: 3000 + i
-                    });
-
-                    if (buyRes.error) {
-                        console.error(`[BulkTrade] Buy ${i} failed:`, buyRes.error.message);
-                        continue;
-                    }
-
-                    const buy = buyRes.buy;
-                    console.log(`[BulkTrade] ✅ Position ${i + 1} Success! Contract: ${buy.contract_id}`);
-                    
-                    newTrades.push({
-                        id: `bulk-${Date.now()}-${i}`,
-                        contract_id: buy.contract_id,
-                        type: side.toUpperCase(),
-                        symbol: currentSymbol,
-                        status: 'open',
-                        entry: livePrice?.toFixed(pipRef.current[currentSymbol] ?? 2) ?? '—',
-                        profit: 0,
-                        stake: currentStake,
-                        time: Date.now()
-                    });
-
-                    // Add a tiny 100ms gap to avoid server race conditions
-                    if (i < validProposals.length - 1) {
-                        await new Promise(r => setTimeout(r, 100));
-                    }
-                } catch (buyErr: any) {
-                    console.error(`[BulkTrade] Critical failure on buy ${i}:`, buyErr);
-                }
-            }
+                const buy = res.buy;
+                console.log(`[BulkTrade] ✅ Position ${i + 1} Success! Contract: ${buy.contract_id}`);
+                return {
+                    id: `bulk-${Date.now()}-${i}`,
+                    contract_id: buy.contract_id,
+                    type: side.toUpperCase(),
+                    symbol: currentSymbol,
+                    status: 'open',
+                    entry: livePrice?.toFixed(pipRef.current[currentSymbol] ?? 2) ?? '—',
+                    profit: 0,
+                    stake: currentStake,
+                    time: Date.now()
+                } as ITradeResult;
+            }).filter(t => t !== null) as ITradeResult[];
 
             setTrades(prev => [...newTrades, ...prev]);
 
             if (newTrades.length < bulkCount) {
                 console.warn(`[BulkTrade] Partial success: ${newTrades.length}/${bulkCount} positions filled.`);
             } else {
-                console.log(`[BulkTrade] 🎉 Bulk Execution Complete. ${newTrades.length} positions filled.`);
+                console.log(`[BulkTrade] 🎉 Bulk Execution Complete. ${newTrades.length} positions filled simultaneously.`);
             }
 
         } catch (err: any) {
