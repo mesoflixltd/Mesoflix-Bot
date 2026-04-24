@@ -43,7 +43,11 @@ const AIScannerPage = () => (
     </div>
 );
 
-const BulkTradingPageTab = () => <BulkTradingPage />;
+const BulkTradingPageTab = () => (
+    <div className='aihub-subpage aihub-subpage--bulk'>
+        <BulkTradingPage />
+    </div>
+);
 
 const UltimateTraderPage = () => (
     <div className='aihub-subpage aihub-subpage--ultimate'>

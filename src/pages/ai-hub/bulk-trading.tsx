@@ -255,9 +255,10 @@ const BulkTradingPage: React.FC = () => {
     }, [tickInput, subscribe]);
 
     const triggerPopup = (id: string, content: string) => {
-        if (popup?.timeout) clearTimeout(popup.timeout);
-        const timeout = setTimeout(() => setPopup(null), 5000);
-        setPopup({ id, content, timeout });
+        setPopup(prev => {
+            if (prev?.timeout) clearTimeout(prev.timeout);
+            return { id, content, timeout: setTimeout(() => setPopup(null), 5000) };
+        });
     };
 
     const stats = useMemo(() => {
@@ -353,8 +354,10 @@ const BulkTradingPage: React.FC = () => {
                             className={`bt-trail__pill ${
                                 d >= 5 ? 'bt-trail__pill--high' : 'bt-trail__pill--low'
                             } ${i === 0 ? 'bt-trail__pill--latest' : ''}`}
+                            onClick={() => triggerPopup(`trail-${i}`, `Digit: ${d} (${d >= 5 ? 'Over' : 'Under'})`)}
                         >
                             {d}
+                            {popup?.id === `trail-${i}` && <div className='bt-mini-popup'>{popup.content}</div>}
                         </span>
                     ))}
                 </div>
@@ -421,8 +424,10 @@ const BulkTradingPage: React.FC = () => {
                         <span
                             key={i}
                             className={`bt-trail__pill ${d % 2 === 0 ? 'bt-trail__pill--even' : 'bt-trail__pill--odd'} ${i === 0 ? 'bt-trail__pill--latest' : ''}`}
+                            onClick={() => triggerPopup(`eo-trail-${i}`, `Digit: ${d} (${d % 2 === 0 ? 'Even' : 'Odd'})`)}
                         >
                             {d % 2 === 0 ? 'E' : 'O'}
+                            {popup?.id === `eo-trail-${i}` && <div className='bt-mini-popup'>{popup.content}</div>}
                         </span>
                     ))}
                 </div>

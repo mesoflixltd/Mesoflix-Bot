@@ -5,47 +5,49 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 .aihub-page {
-    height: 100%;
-    display: flex;
+    height:         100vh;      /* Use viewport height */
+    max-height:     100vh;
+    display:        flex;
     flex-direction: column;
-    background: var(--general-main-1);
-    color: var(--text-prominent);
-    font-family: 'Inter', sans-serif;
-    overflow: hidden;
+    background:     var(--general-main-1);
+    color:          var(--text-prominent);
+    font-family:    'Inter', sans-serif;
+    overflow:       hidden;     /* Prevent global body scroll */
 }
 
 /* ─── Header ──────────────────────────────────────────────────────────────── */
 .aihub-header {
-    display: flex;
+    display:         flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 1.6rem;
-    padding: 2rem 2.4rem 1.2rem;
-    border-bottom: 1px solid var(--general-section-1);
-    flex-shrink: 0;
-    flex-wrap: wrap;
+    align-items:     center;
+    gap:             1.6rem;
+    padding:         1.2rem 2.4rem;
+    border-bottom:   1px solid var(--general-section-1);
+    flex-shrink:     0; /* Header stays same size */
+    z-index:         100;
+    background:      var(--general-main-1);
 
     &__text {
         h1 {
-            font-size: 2.2rem;
+            font-size: 1.8rem;
             font-weight: 800;
             background: linear-gradient(135deg, #7f5cff, #00b4ff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.1rem;
         }
 
         p {
-            font-size: 1.3rem;
+            font-size: 0.95rem;
             color: var(--text-less-prominent);
         }
     }
 
     &__badge {
-        font-size: 1.1rem;
+        font-size: 0.9rem;
         font-weight: 700;
-        padding: 0.4rem 1rem;
+        padding: 0.3rem 0.8rem;
         border-radius: 2rem;
         background: linear-gradient(135deg, rgba(127, 92, 255, 0.15), rgba(0, 180, 255, 0.15));
         border: 1px solid rgba(127, 92, 255, 0.3);
@@ -56,158 +58,119 @@
 
 /* ─── Tab Bar ─────────────────────────────────────────────────────────────── */
 .aihub-tabs {
-    display: flex;
-    gap: 0;
-    padding: 0 2rem;
-    border-bottom: 1px solid var(--general-section-1);
-    flex-shrink: 0;
-    overflow-x: auto;
-
-    &::-webkit-scrollbar { display: none; }
-    scrollbar-width: none;
+    display:        flex;
+    gap:            0;
+    padding:        0 1.2rem;
+    border-bottom:  1px solid var(--general-section-1);
+    background:     var(--general-main-1);
+    flex-shrink:    0; /* Tabs NEVER move */
+    z-index:        99;
 }
 
 .aihub-tab {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 1.2rem 1.8rem;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 3px solid transparent;
-    margin-bottom: -1px;
+    position:      relative;
+    display:       flex;
+    align-items:   center;
+    gap:           0.6rem;
+    padding:       1rem 1.6rem;
+    background:    transparent;
+    border:        none;
+    color:         var(--text-less-prominent);
+    cursor:        pointer;
+    transition:    all 0.2s;
+    font-size:     1.05rem;
+    font-weight:   600;
 
-    &__icon {
-        font-size: 1.5rem;
-        line-height: 1;
+    @media (max-width: 600px) {
+        padding: 0.8rem 1rem;
+        font-size: 0.9rem;
+        gap: 0.4rem;
     }
 
-    &__label {
-        font-size: 1.3rem;
-        font-weight: 600;
-        color: var(--text-less-prominent);
-        white-space: nowrap;
-        transition: color 0.2s;
+    &__icon { font-size: 1.2rem; }
+
+    &:hover { background: var(--general-section-1); }
+
+    &--active {
+        color: var(--text-prominent);
+        .aihub-tab__label { font-weight: 800; }
     }
 
     &__indicator {
-        position: absolute;
-        bottom: -1px;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: 3px 3px 0 0;
+        position:   absolute;
+        bottom:     0;
+        left:       15%;
+        right:      15%;
+        height:     3px;
         background: var(--tab-accent, #7f5cff);
-        animation: tab-slide-in 0.25s ease;
-    }
-
-    &:hover &__label {
-        color: var(--text-prominent);
-    }
-
-    &--active {
-        .aihub-tab__label {
-            color: var(--text-prominent);
-            font-weight: 700;
-        }
+        border-radius: 3px 3px 0 0;
+        box-shadow: 0 -2px 10px var(--tab-accent, #7f5cff);
     }
 }
 
-/* ─── Content area — NO outer scroll; each sub-page owns its scroll ──────── */
+/* ─── Content area — isolated scroll container ───────────────────────────── */
 .aihub-content {
     flex:            1;
-    overflow:        hidden;       // tabs & header NEVER move
+    overflow:        hidden;       // Critical: it contains a scrollable child
     display:         flex;
     flex-direction:  column;
-    min-height:      0;            // critical for nested flex scroll
+    min-height:      0;            // Critical for nested flex scroll
 }
 
-/* ─── Sub-pages — each one scrolls itself ────────────────────────────────── */
+/* ─── Sub-pages — the scrolling magic happens here ───────────────────────── */
 .aihub-subpage {
-    flex:                       1;    // fill .aihub-content
-    overflow-y:                 auto;
+    flex:                       1;
+    overflow-y:                 auto; 
     overflow-x:                 hidden;
     -webkit-overflow-scrolling: touch;
-    padding:                    2rem 3rem;
-    padding-bottom:             8rem;
+    padding:                    1.6rem;
+    padding-bottom:             10rem;
     width:                      100%;
     animation:                  aihub-fade-up 0.3s ease;
 
     &::-webkit-scrollbar          { width: 5px; }
     &::-webkit-scrollbar-track    { background: transparent; }
     &::-webkit-scrollbar-thumb    { background: var(--general-section-2); border-radius: 4px; }
-    &::-webkit-scrollbar-thumb:hover { background: var(--text-less-prominent); }
-
-    /* Per-tab accent gradient overrides */
-    &--scanner  { --hero-color-a: #00b4ff; --hero-color-b: #00e676; }
-    &--bulk     { --hero-color-a: #7f5cff; --hero-color-b: #00b4ff; }
-    &--ultimate { --hero-color-a: #f5a623; --hero-color-b: #ff5252; }
 }
 
-/* ─── Hero block ──────────────────────────────────────────────────────────── */
+/* ─── Hero blocks ─────────────────────────────────────────────────────────── */
 .aihub-subpage__hero {
-    text-align: center;
-    padding: 3.2rem 2rem 2.4rem;
-    background: var(--general-section-1);
+    text-align:    center;
+    padding:       3rem 1.6rem;
+    background:    var(--general-section-1);
     border-radius: 1.6rem;
     margin-bottom: 2rem;
-    border: 1px solid var(--general-section-2);
+    border:        1px solid var(--general-section-1);
 
-    h2 {
-        font-size: 2.6rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, var(--hero-color-a, #7f5cff), var(--hero-color-b, #00b4ff));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin: 1rem 0 0.8rem;
-    }
-
-    p {
-        font-size: 1.4rem;
-        color: var(--text-less-prominent);
-        line-height: 1.7;
-        max-width: 600px;
-        margin: 0 auto 1.6rem;
-    }
+    &-icon { font-size: 3rem; margin-bottom: 1rem; }
+    h2 { font-size: 2.2rem; font-weight: 800; margin-bottom: 0.8rem; }
+    p { font-size: 1.1rem; color: var(--text-less-prominent); max-width: 800px; margin: 0 auto 1.4rem; }
 }
 
-.aihub-subpage__hero-icon {
-    font-size: 4rem;
-    line-height: 1;
-    margin-bottom: 0.4rem;
-}
-
-/* ─── Status badges ───────────────────────────────────────────────────────── */
 .aihub-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 1.2rem;
-    font-weight: 700;
-    padding: 0.4rem 1.2rem;
-    border-radius: 2rem;
-
-    &--live     { background: rgba(0, 180, 255, 0.12); color: #00b4ff; border: 1px solid rgba(0, 180, 255, 0.3); }
-    &--beta     { background: rgba(127, 92, 255, 0.12); color: #7f5cff; border: 1px solid rgba(127, 92, 255, 0.3); }
-    &--pro      { background: rgba(245, 166, 35, 0.12); color: #f5a623; border: 1px solid rgba(245, 166, 35, 0.3); }
+    display:        inline-flex;
+    padding:        0.5rem 1.2rem;
+    border-radius:  2rem;
+    font-size:      0.9rem;
+    font-weight:    700;
+    
+    &--live { background: rgba(0, 180, 255, 0.1); color: #00b4ff; border: 1px solid rgba(0, 180, 255, 0.2); }
+    &--pro  { background: rgba(245, 166, 35, 0.1); color: #f5a623; border: 1px solid rgba(245, 166, 35, 0.2); }
 }
 
 /* ─── Features grid ───────────────────────────────────────────────────────── */
 .aihub-features-grid {
     display:               grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap:                   1.6rem;
+    /* Fixed: Use 1fr on mobile, then up to 4 columns on huge screens */
+    grid-template-columns: 1fr;
+    gap:                   1.2rem;
     margin-bottom:         3rem;
 
-    @media (max-width: 900px) {
-        grid-template-columns: 1fr;
+    @media (min-width: 680px) {
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (min-width: 1400px) {
+    @media (min-width: 1200px) {
         grid-template-columns: repeat(3, 1fr);
     }
 
@@ -218,132 +181,67 @@
 
 /* ─── Feature cards ───────────────────────────────────────────────────────── */
 .aihub-feature-card {
-    background: var(--general-section-1);
-    border: 1.5px solid var(--general-section-2);
+    background:    var(--general-section-1);
+    padding:       1.6rem;
     border-radius: 1.2rem;
-    padding: 1.8rem;
-    display: flex;
+    border:        1px solid var(--general-section-1);
+    display:       flex;
     flex-direction: column;
-    gap: 0.8rem;
-    transition: all 0.2s ease;
-    animation: aihub-fade-up 0.35s ease;
+    gap:           0.8rem;
+    transition:    transform 0.2s, border-color 0.2s;
 
-    &:hover {
-        border-color: rgba(127, 92, 255, 0.4);
-        box-shadow: 0 6px 20px rgba(127, 92, 255, 0.1);
-        transform: translateY(-2px);
-    }
+    &:hover { transform: translateY(-3px); border-color: rgba(127, 92, 255, 0.3); }
 
-    &__icon {
-        font-size: 2.4rem;
-        line-height: 1;
-    }
-
-    h3 {
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: var(--text-prominent);
-    }
-
-    p {
-        font-size: 1.2rem;
-        color: var(--text-less-prominent);
-        line-height: 1.6;
-        flex: 1;
-    }
+    &__icon { font-size: 1.8rem; margin-bottom: 0.4rem; }
+    h3 { font-size: 1.2rem; font-weight: 700; color: var(--text-prominent); }
+    p { font-size: 0.95rem; color: var(--text-less-prominent); line-height: 1.5; }
 
     &__status {
-        display: inline-flex;
-        align-items: center;
-        font-size: 1.05rem;
-        font-weight: 700;
-        padding: 0.25rem 0.8rem;
-        border-radius: 2rem;
-        width: fit-content;
-        margin-top: 0.4rem;
-
-        &--pending {
-            background: rgba(255, 200, 40, 0.1);
-            color: #f5a623;
-        }
-
-        &--pro {
-            background: linear-gradient(135deg, rgba(245, 166, 35, 0.15), rgba(255, 82, 82, 0.15));
-            color: #f5a623;
-            border: 1px solid rgba(245, 166, 35, 0.3);
-        }
+        display:        inline-flex;
+        font-size:      0.75rem;
+        font-weight:    800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top:     auto;
+        
+        &--pending { color: var(--text-less-prominent); }
+        &--pro     { color: #f5a623; }
     }
 
-    /* Gold variant for Ultimate Trader */
-    &--gold {
-        border-color: rgba(245, 166, 35, 0.25);
-        background: linear-gradient(
-            145deg,
-            var(--general-section-1),
-            rgba(245, 166, 35, 0.04)
-        );
-
-        &:hover {
-            border-color: rgba(245, 166, 35, 0.5);
-            box-shadow: 0 6px 20px rgba(245, 166, 35, 0.12);
-        }
-    }
+    &--gold { border-color: rgba(245, 166, 35, 0.15); &:hover { border-color: #f5a623; } }
 }
 
-/* ─── CTA block (Ultimate Trader) ─────────────────────────────────────────── */
+/* ─── CTA ─────────────────────────────────────────────────────────────────── */
 .aihub-cta {
-    display: flex;
+    display:         flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 2rem;
-    padding: 2rem 2.4rem;
-    border-radius: 1.4rem;
-    background: linear-gradient(135deg, rgba(245, 166, 35, 0.08), rgba(255, 82, 82, 0.06));
-    border: 1.5px solid rgba(245, 166, 35, 0.25);
-    flex-wrap: wrap;
+    align-items:     center;
+    padding:         2rem;
+    background:      linear-gradient(135deg, #7f5cff, #f5a623);
+    border-radius:   1.4rem;
+    color:           white;
+    flex-wrap:       wrap;
+    gap:             1.6rem;
 
     &__text {
-        h3 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: var(--text-prominent);
-            margin-bottom: 0.4rem;
-        }
-
-        p {
-            font-size: 1.2rem;
-            color: var(--text-less-prominent);
-            line-height: 1.5;
-        }
+        h3 { font-size: 1.6rem; font-weight: 800; margin-bottom: 0.4rem; }
+        p { font-size: 1.05rem; opacity: 0.9; }
     }
 
     &__btn {
-        padding: 0.9rem 2rem;
-        border-radius: 2rem;
-        background: linear-gradient(135deg, #f5a623, #ff5252);
-        color: white;
-        font-size: 1.3rem;
-        font-weight: 700;
+        padding:       1rem 2rem;
+        background:    white;
+        color:         #7f5cff;
+        border-radius: 1rem;
+        font-weight:   800;
         text-decoration: none;
-        white-space: nowrap;
-        transition: all 0.2s;
-        box-shadow: 0 4px 16px rgba(245, 166, 35, 0.3);
+        transition:    transform 0.2s;
 
-        &:hover {
-            opacity: 0.88;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(245, 166, 35, 0.4);
-        }
+        &:hover { transform: scale(1.05); }
     }
 }
 
-/* ─── Animations ──────────────────────────────────────────────────────────── */
 @keyframes aihub-fade-up {
-    from { opacity: 0; transform: translateY(14px); }
+    from { opacity: 0; transform: translateY(15px); }
     to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes tab-slide-in {
-    from { transform: scaleX(0.4); opacity: 0; }
-    to   { transform: scaleX(1);   opacity: 1; }
 }

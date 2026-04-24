@@ -20,12 +20,11 @@ $dc-cold:    #90caf9;
 .bt-page {
     display:        flex;
     flex-direction: column;
-    flex:           1;
-    min-height:     0;
-    overflow:       hidden;
+    /* Removed overflow hidden to allow parent scroll */
     background:     var(--general-main-1);
     color:          var(--text-prominent);
     font-family:    'Inter', sans-serif;
+    width:          100%;
 }
 
 /* ─── Inner constraint for premium wide-screen look ───────────────────────── */
@@ -60,6 +59,10 @@ $dc-cold:    #90caf9;
     padding:         1rem 1.6rem;
     border-bottom:   1px solid var(--general-section-1);
     flex-shrink:     0;
+    background:      var(--general-main-1);
+    position:        sticky;
+    top:             0;
+    z-index:         10;
 
     .bt-inner {
         justify-content: space-between;
@@ -105,7 +108,7 @@ $dc-cold:    #90caf9;
         font-weight:    800;
         font-size:      1.2rem;
         font-family:    'Roboto Mono', monospace;
-        animation:      bt-pop 0.3s ease;
+        animation:      bt-pop-digit 0.3s ease;
     }
 }
 
@@ -162,6 +165,10 @@ $dc-cold:    #90caf9;
     border-bottom:    1px solid var(--general-section-1);
     padding:          0.5rem 1.2rem;
     flex-shrink:      0;
+    background:       var(--general-main-1);
+    position:         sticky;
+    top:              68px; /* Sticky below controls */
+    z-index:          9;
 
     .bt-inner {
         gap: 0.5rem;
@@ -212,14 +219,9 @@ $dc-cold:    #90caf9;
 /* ─── Scrollable content ──────────────────────────────────────────────────── */
 .bt-content {
     flex:                     1;
-    overflow-y:               auto;
-    overflow-x:               hidden;
     padding:                  1.4rem;
     padding-bottom:           4rem;
-
-    &::-webkit-scrollbar          { width: 4px; }
-    &::-webkit-scrollbar-track    { background: transparent; }
-    &::-webkit-scrollbar-thumb    { background: var(--general-section-2); border-radius: 4px; }
+    /* Removed overflow-y auto to let parent handle scroll */
 
     .bt-inner {
         flex-direction: column;
@@ -284,7 +286,6 @@ $dc-cold:    #90caf9;
     background:            #f8fafc;
     border-radius:         1.4rem;
     border:                1px solid rgba(0,0,0,0.05);
-    box-shadow:            inset 0 2px 4px rgba(0,0,0,0.02);
 
     @media (max-width: 600px) {
         display: grid;
@@ -307,19 +308,17 @@ $dc-cold:    #90caf9;
     align-items:    center;
     gap:            0.6rem;
     box-shadow:     0 4px 12px rgba(0,0,0,0.03);
-    transition:     all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:     all 0.2s;
     cursor:         pointer;
 
     @media (max-width: 600px) {
         width: 100%;
         min-width: 0;
         padding: 0.8rem 0.2rem;
-        border-radius: 0.8rem;
     }
 
     &:hover {
         transform: translateY(-4px);
-        border-color: rgba($purple, 0.3);
         box-shadow: 0 8px 24px rgba($purple, 0.1);
     }
 
@@ -328,21 +327,9 @@ $dc-cold:    #90caf9;
     &--neutral { --bt-ring: #{$dc-neutral}; }
     &--cold    { --bt-ring: #{$dc-cold}; }
 
-    &--highest {
-        border-color: #{$green};
-        background: rgba($green, 0.02);
-        .bt-dc-card__arc { stroke: #{$green} !important; }
-        .bt-dc-card__pct-pill { color: #{$green}; }
-    }
-
-    &--lowest {
-        border-color: #{$red};
-        background: rgba($red, 0.02);
-        .bt-dc-card__arc { stroke: #{$red} !important; }
-        .bt-dc-card__pct-pill { color: #{$red}; }
-    }
-
-    &--flash { animation: bt-flash 0.4s ease-out; border-color: $purple; background: rgba($purple, 0.03); }
+    &--highest { border-color: #{$green}; background: rgba($green, 0.02); }
+    &--lowest  { border-color: #{$red}; background: rgba($red, 0.02); }
+    &--flash   { animation: bt-flash 0.4s ease-out; border-color: $purple; }
 
     &__cursor {
         position:  absolute;
@@ -406,20 +393,21 @@ $dc-cold:    #90caf9;
 /* ─── Mini Popup ──────────────────────────────────────────────────────────── */
 .bt-mini-popup {
     position:      absolute;
-    bottom:        110%;
+    bottom:        120%;
     left:          50%;
     transform:     translateX(-50%);
-    background:    #1e293b;
-    color:         white;
-    padding:       0.6rem 1rem;
-    border-radius: 0.6rem;
-    font-size:     0.85rem;
-    font-weight:   600;
+    background:    #0f172a;
+    color:         #f8fafc;
+    padding:       0.7rem 1.2rem;
+    border-radius: 0.8rem;
+    font-size:     0.9rem;
+    font-weight:   700;
     white-space:   nowrap;
-    z-index:       100;
-    box-shadow:    0 8px 16px rgba(0,0,0,0.2);
-    animation:     bt-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index:       200;
+    box-shadow:    0 10px 25px rgba(0,0,0,0.3);
+    animation:     bt-pop-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     pointer-events:none;
+    border:        1px solid rgba(255,255,255,0.1);
 
     &::after {
         content:     '';
@@ -427,8 +415,8 @@ $dc-cold:    #90caf9;
         top:         100%;
         left:        50%;
         transform:   translateX(-50%);
-        border:      6px solid transparent;
-        border-top:  6px solid #1e293b;
+        border:      7px solid transparent;
+        border-top:  7px solid #0f172a;
     }
 }
 
@@ -440,7 +428,6 @@ $dc-cold:    #90caf9;
     padding:        1.6rem;
     background:     #f8fafc;
     border-radius:  1.4rem;
-    border:         1px solid rgba(0,0,0,0.02);
 }
 
 .bt-eo-bar-row {
@@ -449,58 +436,15 @@ $dc-cold:    #90caf9;
     align-items: center;
     gap:         1.2rem;
     cursor:      pointer;
-    padding:     0.4rem;
-    border-radius: 0.8rem;
-    transition:  background 0.2s;
-
-    &:hover { background: rgba(255,255,255,0.6); }
-
-    &__label {
-        min-width:   4.8rem;
-        font-size:   1.05rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        color:       #334155;
-    }
-
-    &__track {
-        flex:          1;
-        height:        1.4rem;
-        background:    #e2e8f0;
-        border-radius: 1rem;
-        overflow:      hidden;
-    }
-
-    &__fill {
-        height:        100%;
-        transition:    width 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-
-        &--even { background: linear-gradient(90deg, #{$green}, lighten($green, 15%)); }
-        &--odd  { background: linear-gradient(90deg, #{$red}, lighten($red, 15%)); }
-        &--rise { background: linear-gradient(90deg, #{$green}, lighten($green, 15%)); }
-        &--fall { background: linear-gradient(90deg, #{$red}, lighten($red, 15%)); }
-    }
-
-    &__pct {
-        min-width:   4.5rem;
-        font-size:   1.3rem;
-        font-weight: 800;
-        font-family: 'Roboto Mono', monospace;
-        text-align:  right;
-        color:       #1e293b;
-    }
-
-    &__count {
-        min-width:  3.5rem;
-        font-size:  0.95rem;
-        font-weight:600;
-        color:      #64748b;
-    }
 }
 
-.bt-streak-box {
-    display:    flex;
-    gap:        1.2rem;
+.bt-eo-bar-row__fill {
+    height:        100%;
+    transition:    width 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    &--even { background: linear-gradient(90deg, #{$green}, lighten($green, 15%)); }
+    &--odd  { background: linear-gradient(90deg, #{$red}, lighten($red, 15%)); }
+    &--rise { background: linear-gradient(90deg, #{$green}, lighten($green, 15%)); }
+    &--fall { background: linear-gradient(90deg, #{$red}, lighten($red, 15%)); }
 }
 
 .bt-streak-item {
@@ -513,15 +457,6 @@ $dc-cold:    #90caf9;
     align-items:    center;
     gap:            0.4rem;
     border:         1.5px solid rgba(0,0,0,0.04);
-    box-shadow:     0 4px 12px rgba(0,0,0,0.02);
-}
-
-.bt-streak-label {
-    font-size:      0.75rem;
-    font-weight:    800;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color:          #64748b;
 }
 
 .bt-streak-value {
@@ -536,19 +471,15 @@ $dc-cold:    #90caf9;
     display:        flex;
     flex-direction: column;
     gap:            1rem;
-
-    &__label {
-        font-size:      0.8rem;
-        font-weight:    800;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color:          #64748b;
-    }
+    /* Important: allow popups to overflow */
+    overflow:       visible; 
 
     &__row {
         display:          flex;
         flex-wrap:        wrap;
         gap:              0.6rem;
+        /* Important: allow popups to overflow */
+        overflow:         visible;
     }
 }
 
@@ -567,12 +498,12 @@ $dc-cold:    #90caf9;
     transition:      all 0.2s;
     cursor:          pointer;
 
-    @media (max-width: 600px) { width: 2.1rem; height: 2.1rem; font-size: 0.7rem; }
+    @media (max-width: 600px) { width: 2.1rem; height: 2.1rem; }
 
-    &:hover { filter: brightness(1.15); transform: scale(1.1); }
+    &:hover { transform: scale(1.15); z-index: 10; }
 
-    &--high    { background: $green; box-shadow: 0 4px 8px rgba($green, 0.3); }
-    &--low     { background: $purple; box-shadow: 0 4px 8px rgba($purple, 0.3); }
+    &--high    { background: $green; }
+    &--low     { background: $purple; }
     &--even    { background: rgba($green, 0.1); color: $green; border: 1.5px solid rgba($green, 0.4); }
     &--odd     { background: rgba($red, 0.1);  color: $red; border: 1.5px solid rgba($red, 0.4); }
     &--rise    { background: rgba($green, 0.1); color: $green; border: 1.5px solid rgba($green, 0.4); }
@@ -580,14 +511,14 @@ $dc-cold:    #90caf9;
     &--latest  { 
         animation: bt-ping 1.5s infinite;
         border: 2px solid $gold;
-        box-shadow: 0 0 15px rgba($gold, 0.5);
     }
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
 @keyframes bt-spin { to { transform: rotate(360deg); } }
 @keyframes bt-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes bt-pop { 0% { transform: translate(-50%, 10px) scale(0.8); opacity: 0; } 100% { transform: translate(-50%, 0) scale(1); opacity: 1; } }
-@keyframes bt-flash { 0% { filter: brightness(1.6); transform: scale(1.08); } 100% { filter: brightness(1); transform: scale(1); } }
+@keyframes bt-pop-in { 0% { transform: translate(-50%, 15px) scale(0.5); opacity: 0; } 100% { transform: translate(-50%, 0) scale(1); opacity: 1; } }
+@keyframes bt-pop-digit { 0% { transform: scale(0.8); } 100% { transform: scale(1); } }
+@keyframes bt-flash { 0% { filter: brightness(1.6); } 100% { filter: brightness(1); } }
 @keyframes bt-bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-6px); } }
 @keyframes bt-ping { 0% { box-shadow: 0 0 0 0 rgba($gold, 0.4); } 70% { box-shadow: 0 0 0 10px rgba($gold, 0); } 100% { box-shadow: 0 0 0 0 rgba($gold, 0); } }
