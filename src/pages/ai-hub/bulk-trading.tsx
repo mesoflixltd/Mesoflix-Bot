@@ -122,7 +122,18 @@ const BulkTradingPage: React.FC = observer(() => {
     const [loading,    setLoading]    = useState(true);
     const [executing,  setExecuting]  = useState(false);
 
-    const [trades, setTrades] = useState<ITradeResult[]>([]);
+    // ── Persistence ──
+    const [trades, setTrades] = useState<ITradeResult[]>(() => {
+        try {
+            const saved = localStorage.getItem('bt_trades');
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) { return []; }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('bt_trades', JSON.stringify(trades.slice(0, 100)));
+    }, [trades]);
+
     const [popup, setPopup] = useState<{ data: IPopupData; timeout?: any } | null>(null);
 
     const symbolRef    = useRef(symbol);
@@ -295,14 +306,32 @@ const BulkTradingPage: React.FC = observer(() => {
     const [currency, setCurrency] = useState<string>('USD');
 
     useEffect(() => {
-        const sub = api_base.api?.onMessage().subscribe((msg: any) => {
+        const sub = api_base.api?.onMessage().subscribe((envelope: any) => {
+            const msg = envelope?.data ?? envelope ?? {};
+            
             if (msg.msg_type === 'balance') {
                 setBalance(Number(msg.balance.balance).toFixed(2));
                 setCurrency(msg.balance.currency);
             }
+            if (msg.msg_type === 'transaction') {
+                const tx = msg.transaction;
+                if (tx && tx.action === 'sell') {
+                    setTrades(prev => prev.map(tr => {
+                        if (String(tr.contract_id) === String(tx.contract_id)) {
+                            return {
+                                ...tr,
+                                status: tx.amount > 0 ? 'won' : 'lost',
+                                profit: Number(tx.amount || 0)
+                            };
+                        }
+                        return tr;
+                    }));
+                }
+            }
             if (msg.msg_type === 'proposal_open_contract') {
                 const poc = msg.proposal_open_contract;
                 if (poc) {
+                    console.log(`[BulkTrade] Received POC for ${poc.contract_id}, is_sold: ${poc.is_sold}, status: ${poc.status}`);
                     setTrades(prev => prev.map(tr => {
                         if (String(tr.contract_id) === String(poc.contract_id)) {
                             const isSold = !!poc.is_sold;
