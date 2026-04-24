@@ -291,6 +291,28 @@ const BulkTradingPage: React.FC = observer(() => {
         };
     }, [wsUrl, subscribe, setStatus, wsRef]);
 
+    useEffect(() => {
+        const sub = api_base.api?.onMessage().subscribe((msg: any) => {
+            if (msg.msg_type === 'proposal_open_contract') {
+                const poc = msg.proposal_open_contract;
+                if (poc) {
+                    setTrades(prev => prev.map(tr => {
+                        if (tr.contract_id === poc.contract_id) {
+                            return {
+                                ...tr,
+                                status: poc.status === 'won' ? 'won' : (poc.status === 'lost' ? 'lost' : 'open'),
+                                exit: poc.exit_tick_display_value ?? poc.exit_tick ?? tr.exit,
+                                profit: Number(poc.profit ?? 0)
+                            };
+                        }
+                        return tr;
+                    }));
+                }
+            }
+        });
+        return () => sub?.unsubscribe();
+    }, []);
+
     // ── Bulk Execution Logic ──
     const executeBulkTrade = async (side: string) => {
         if (executing || status !== 'connected') return;
