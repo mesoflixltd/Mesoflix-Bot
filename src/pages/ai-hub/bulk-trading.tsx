@@ -55,7 +55,7 @@ const getHeat = (pct: number): THeat => {
 // ── Types for Execution ────────────────────────────────────────────────────────
 interface ITradeResult {
     id: string;
-    contract_id: number;
+    contract_id: string | number;
     type: string;
     symbol: string;
     status: 'pending' | 'won' | 'lost' | 'open';
@@ -241,7 +241,7 @@ const BulkTradingPage: React.FC = observer(() => {
                         const poc = msg.proposal_open_contract;
                         if (poc) {
                             setTrades(prev => prev.map(tr => {
-                                if (tr.contract_id === poc.contract_id) {
+                                if (String(tr.contract_id) === String(poc.contract_id)) {
                                     return {
                                         ...tr,
                                         status: poc.status === 'won' ? 'won' : (poc.status === 'lost' ? 'lost' : 'open'),
@@ -304,15 +304,15 @@ const BulkTradingPage: React.FC = observer(() => {
                 const poc = msg.proposal_open_contract;
                 if (poc) {
                     setTrades(prev => prev.map(tr => {
-                        if (tr.contract_id === poc.contract_id) {
+                        if (String(tr.contract_id) === String(poc.contract_id)) {
                             const isSold = !!poc.is_sold;
                             const finalStatus = isSold ? (poc.status === 'won' ? 'won' : 'lost') : 'open';
                             
                             return {
                                 ...tr,
                                 status: finalStatus,
-                                exit: poc.exit_tick_display_value ?? poc.exit_tick ?? tr.exit,
-                                profit: Number(poc.profit ?? 0)
+                                exit: poc.exit_tick_display_value ?? poc.exit_tick ?? poc.sell_price ?? tr.exit,
+                                profit: Number(poc.profit_display_value ?? poc.profit ?? 0)
                             };
                         }
                         return tr;
