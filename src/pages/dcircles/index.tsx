@@ -60,6 +60,7 @@ const DCircles = observer(() => {
     const [selectedSymbol, setSelectedSymbol] = useState<string>(initialSymbol);
     const [livePrice,     setLivePrice]     = useState<string | number>('—');
     const [digitsWindow,  setDigitsWindow]  = useState<number[]>(buildSeedWindow);
+    const [priceWindow,   setPriceWindow]   = useState<number[]>([]);
     const [liveLoading,   setLiveLoading]   = useState(false);
     const [lastDigit,     setLastDigit]     = useState<number | null>(null);
     const tickCountRef    = useRef<number>(1000);
@@ -81,9 +82,8 @@ const DCircles = observer(() => {
     const subscribeToSymbol = useCallback((symbol: string) => {
         if (!symbol) return;
         if (subIdRef.current) { send({ forget: subIdRef.current }); subIdRef.current = null; }
-        send({ forget_all: 'ticks' });
         setLiveLoading(true);
-        setDigitsWindow([]); // Clear window while loading
+        // We DO NOT clear the digitsWindow here, keeping UI populated until new data arrives
         send({ ticks_history: symbol, end: 'latest', count: tickCountRef.current, style: 'ticks', subscribe: 1, req_id: REQ_TICKS });
     }, [send]);
 
@@ -129,7 +129,9 @@ const DCircles = observer(() => {
                     if (msg.subscription?.id) subIdRef.current = msg.subscription.id;
                     const prices: (number | string)[] = msg.history?.prices ?? [];
                     if (prices.length > 0) {
-                        setDigitsWindow(prices.map(p => getDigit(p)).slice(-tickCountRef.current));
+                        const wPrices = prices.map(p => Number(p)).slice(-tickCountRef.current);
+                        setPriceWindow(wPrices);
+                        setDigitsWindow(wPrices.map(p => getDigit(p)));
                     }
                     setLiveLoading(false);
                 }
@@ -139,11 +141,17 @@ const DCircles = observer(() => {
                     const quote = msg.tick?.quote;
                     if (quote !== undefined && selectedSymbolRef.current === msg.tick?.symbol) {
                         const digit = getDigit(quote);
+                        
+                        setPriceWindow(prev => {
+                            if (prev.length === 0) return [quote];
+                            return [...prev.slice(-(tickCountRef.current - 1)), quote];
+                        });
+
                         setDigitsWindow(prev => {
-                            // Only append if the array is populated (i.e. not cleared by loading)
                             if (prev.length === 0) return [digit];
                             return [...prev.slice(-(tickCountRef.current - 1)), digit];
                         });
+                        
                         setLivePrice(quote);
                         setLastDigit(digit);
                         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -198,6 +206,28 @@ const DCircles = observer(() => {
         const sorted = [...digitStats].sort((a, b) => b.count - a.count);
         return { hottestDigit: sorted[0].digit, coldestDigit: sorted[sorted.length - 1].digit };
     }, [digitStats]);
+
+    const evenOddStats = useMemo(() => {
+        let even = 0, odd = 0;
+        digitsWindow.forEach(d => { if (d % 2 === 0) even++; else odd++; });
+        const total = digitsWindow.length || 1;
+        let bias = 'NEUTRAL';
+        if (even > odd) bias = 'EVEN';
+        else if (odd > even) bias = 'ODD';
+        return { even, odd, evenPct: (even/total)*100, oddPct: (odd/total)*100, bias };
+    }, [digitsWindow]);
+
+    const riseFallStats = useMemo(() => {
+        let rise = 0, fall = 0;
+        for (let i = 1; i < priceWindow.length; i++) {
+            if (priceWindow[i] > priceWindow[i - 1]) rise++;
+            else if (priceWindow[i] < priceWindow[i - 1]) fall++;
+        }
+        let bias = 'NEUTRAL';
+        if (rise > fall) bias = 'BULLISH';
+        else if (fall > rise) bias = 'BEARISH';
+        return { rise, fall, bias };
+    }, [priceWindow]);
 
     const isOffline = connStatus === 'closed' || connStatus === 'error';
     const formattedPrice = typeof livePrice === 'number' ? livePrice.toFixed(2) : livePrice;
@@ -277,6 +307,43 @@ const DCircles = observer(() => {
                         min='50'
                         max='5000'
                     />
+                </div>
+            </div>
+
+            {/* Analysis */}
+            <div className='dcircles-analysis'>
+                <div className='dcircles-analysis__panel dcircles-analysis__panel--eo'>
+                    <h3><Localize i18n_default_text='Even / Odd' /></h3>
+                    <div className='dcircles-analysis__stats'>
+                        <div className='dcircles-stat dcircles-stat--even'>
+                            <span>Even</span>
+                            <strong>{evenOddStats.evenPct.toFixed(1)}%</strong>
+                        </div>
+                        <div className='dcircles-stat dcircles-stat--odd'>
+                            <span>Odd</span>
+                            <strong>{evenOddStats.oddPct.toFixed(1)}%</strong>
+                        </div>
+                    </div>
+                    <div className={`dcircles-analysis__bias dcircles-analysis__bias--${evenOddStats.bias.toLowerCase()}`}>
+                        {evenOddStats.bias} DOMINANT
+                    </div>
+                </div>
+
+                <div className='dcircles-analysis__panel dcircles-analysis__panel--rf'>
+                    <h3><Localize i18n_default_text='Rise / Fall' /></h3>
+                    <div className='dcircles-analysis__stats'>
+                        <div className='dcircles-stat dcircles-stat--rise'>
+                            <span>Rise</span>
+                            <strong>{riseFallStats.rise}</strong>
+                        </div>
+                        <div className='dcircles-stat dcircles-stat--fall'>
+                            <span>Fall</span>
+                            <strong>{riseFallStats.fall}</strong>
+                        </div>
+                    </div>
+                    <div className={`dcircles-analysis__bias dcircles-analysis__bias--${riseFallStats.bias.toLowerCase()}`}>
+                        {riseFallStats.bias} MOMENTUM
+                    </div>
                 </div>
             </div>
 

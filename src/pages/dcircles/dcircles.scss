@@ -161,6 +161,79 @@
     animation: dc-spin 0.6s linear infinite;
   }
 
+  /* ───────── ANALYSIS ───────── */
+  .dcircles-analysis {
+    display: flex;
+    gap: 1.5rem;
+    width: 100%;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+
+    &__panel {
+      flex: 1;
+      min-width: 250px;
+      background: var(--general-main-2);
+      border: 1px solid var(--general-section-1);
+      border-radius: 12px;
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+
+      h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-less-prominent);
+        letter-spacing: 0.05em;
+      }
+    }
+
+    &__stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 1.5rem;
+    }
+
+    .dcircles-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+
+      span {
+        font-size: 0.8rem;
+        color: var(--text-less-prominent);
+        text-transform: uppercase;
+      }
+
+      strong {
+        font-size: 1.5rem;
+        font-weight: 800;
+        font-family: 'Roboto Mono', monospace;
+        color: var(--text-prominent);
+      }
+      
+      &--even strong { color: #00e676; }
+      &--odd strong  { color: #ff5252; }
+      &--rise strong { color: #00e676; }
+      &--fall strong { color: #ff5252; }
+    }
+
+    &__bias {
+      font-size: 0.8rem;
+      font-weight: 800;
+      padding: 0.5rem;
+      border-radius: 6px;
+      text-align: center;
+      letter-spacing: 0.05em;
+
+      &--even, &--bullish { background: rgba(0,230,118,0.1); color: #00e676; }
+      &--odd,  &--bearish { background: rgba(255,82,82,0.1); color: #ff5252; }
+      &--neutral          { background: rgba(127,92,255,0.1); color: #7f5cff; }
+    }
+  }
+
   /* ───────── GRID ───────── */
   .dcircles-grid {
     display: grid;
