@@ -221,10 +221,21 @@ const DCircles = observer(() => {
                 // ── history ───────────────────────────────────────────────
                 if (msg_type === 'history' && req_id === REQ_TICKS) {
                     if (msg.subscription?.id) subIdRef.current = msg.subscription.id;
+
                     const prices: (number | string)[] = msg.history?.prices ?? [];
-                    LOG.info(`History received — ${prices.length} prices, subscription:`, msg.subscription?.id);
+                    LOG.info(`History received — ${prices.length} prices for '${selectedSymbolRef.current}', sub:`, msg.subscription?.id);
+
+                    // Extract pip_size from history response if available
+                    const histPip: number | undefined = msg.pip_size ?? msg.history?.pip_size;
+                    if (histPip !== undefined) {
+                        LOG.info(`pip_size from history: ${histPip} — updating for symbol '${selectedSymbolRef.current}'`);
+                        pipSizesRef.current = { ...pipSizesRef.current, [selectedSymbolRef.current]: histPip };
+                    }
+
                     if (prices.length > 0) {
+                        LOG.info('First price sample:', prices[0], '→ digit should be:', (String(Number(prices[0]).toFixed(pipSizesRef.current[selectedSymbolRef.current] ?? 2))).slice(-1));
                         const wPrices = prices.map(p => Number(p)).slice(-tickCountRef.current);
+                        // Clear old window before setting new market's data
                         setPriceWindow(wPrices);
                         setDigitsWindow(wPrices.map(p => getDigit(p)));
                         const latest = wPrices[wPrices.length - 1];
@@ -237,11 +248,44 @@ const DCircles = observer(() => {
 
                 // ── tick ──────────────────────────────────────────────────
                 if (msg_type === 'tick') {
-                    if (!subIdRef.current && msg.tick?.subscription?.id) {
-                        subIdRef.current = msg.tick.subscription.id;
+                    const t = msg.tick ?? {};
+
+                    // Capture subscription ID from tick or its subscription object
+                    const tickSubId = t.id ?? t.subscription?.id ?? msg.subscription?.id;
+                    if (!subIdRef.current && tickSubId) {
+                        subIdRef.current = tickSubId;
                     }
-                    const quote = msg.tick?.quote;
-                    if (quote !== undefined && selectedSymbolRef.current === msg.tick?.symbol) {
+
+                    // New API uses ask/bid — old API uses quote. Support both.
+                    const quote: number | undefined =
+                        t.quote  !== undefined ? Number(t.quote)  :
+                        t.ask    !== undefined ? Number(t.ask)    :
+                        t.bid    !== undefined ? Number(t.bid)    :
+                        undefined;
+
+                    // New API may use 'underlying' instead of 'symbol' in tick
+                    const tickSymbol: string = t.symbol ?? t.underlying ?? t.instrument ?? '';
+
+                    // If API gives us pip_size directly, use it for this symbol
+                    const apiPip: number | undefined = t.pip_size !== undefined ? Number(t.pip_size) : undefined;
+                    if (apiPip !== undefined && tickSymbol) {
+                        pipSizesRef.current = { ...pipSizesRef.current, [tickSymbol]: apiPip };
+                    }
+
+                    // Accept tick if: quote is valid AND (symbol matches OR symbol is empty/unknown)
+                    const symbolMatch =
+                        !tickSymbol ||                                        // API didn't send symbol field
+                        tickSymbol === selectedSymbolRef.current ||            // exact match
+                        tickSubId  === subIdRef.current;                       // same subscription = same market
+
+                    // Only log first 3 ticks to avoid console spam
+                    if ((tickCountRef as any)._tickLogCount === undefined) (tickCountRef as any)._tickLogCount = 0;
+                    if ((tickCountRef as any)._tickLogCount < 3) {
+                        (tickCountRef as any)._tickLogCount++;
+                        LOG.info(`Tick #${(tickCountRef as any)._tickLogCount} | sym:'${tickSymbol || 'N/A'}' ask/quote:${quote} pip_size:${apiPip ?? 'N/A'} subMatch:${symbolMatch}`);
+                    }
+
+                    if (quote !== undefined && symbolMatch) {
                         const digit = getDigit(quote);
 
                         setPriceWindow(prev =>
@@ -255,6 +299,8 @@ const DCircles = observer(() => {
 
                         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
                         flashTimerRef.current = setTimeout(() => setLastDigit(null), 700);
+                    } else if (quote === undefined) {
+                        LOG.warn('Tick has no price field (quote/ask/bid all undefined) — full tick obj:', t);
                     }
                 }
             } catch (err) {
