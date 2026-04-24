@@ -323,6 +323,8 @@ const BulkTradingPage: React.FC = observer(() => {
         const currentAccount = authData$.value?.loginid;
 
         try {
+            console.log(`[BulkTrade] Starting ${side.toUpperCase()} execution for ${bulkCount} positions...`);
+
             // 1. Prepare Contract Type
             let contract_type = '';
             let barrier = undefined;
@@ -339,8 +341,7 @@ const BulkTradingPage: React.FC = observer(() => {
                 barrier = prediction.toString();
             }
 
-            // 2. Get Proposal
-            const proposalReq = {
+            const baseProposal = {
                 proposal: 1,
                 amount: currentStake,
                 basis: 'stake',
@@ -352,31 +353,53 @@ const BulkTradingPage: React.FC = observer(() => {
                 barrier
             };
 
-            const proposalResp = await api_base.api.send(proposalReq);
-            if (proposalResp.error) throw proposalResp.error;
-
-            const proposalId = proposalResp.proposal.id;
-            const askPrice = Number(proposalResp.proposal.ask_price);
-
-            // 3. Batch Buy
-            const buyPromises = [];
+            // 2. Parallel Proposal Fetching (Crucial: Proposal IDs are consumed on purchase)
+            console.log(`[BulkTrade] Requesting ${bulkCount} unique proposals...`);
+            const proposalPromises = [];
             for (let i = 0; i < bulkCount; i++) {
-                buyPromises.push(api_base.api.send({
-                    buy: proposalId,
-                    price: askPrice,
-                    subscribe: 1 // V4: subscribe to POC immediately
-                }));
+                proposalPromises.push(api_base.api.send({ ...baseProposal, req_id: 2000 + i }));
             }
+            const proposalResponses = await Promise.all(proposalPromises);
+            
+            const validProposals = proposalResponses.map((res, i) => {
+                if (res.error) {
+                    console.error(`[BulkTrade] Proposal ${i} failed:`, res.error.message);
+                    return null;
+                }
+                return { id: res.proposal.id, price: Number(res.proposal.ask_price) };
+            }).filter(p => p !== null);
+
+            if (validProposals.length === 0) {
+                const firstErr = proposalResponses.find(r => r.error)?.error?.message;
+                throw new Error(firstErr || 'Failed to obtain trading proposals');
+            }
+
+            console.log(`[BulkTrade] Obtained ${validProposals.length} proposals. Executing Buy...`);
+
+            // 3. Parallel Batch Buy
+            const buyPromises = validProposals.map((prop, i) => {
+                console.log(`[BulkTrade] Sending Buy for Proposal: ${prop.id}`);
+                return api_base.api.send({
+                    buy: prop.id,
+                    price: prop.price,
+                    subscribe: 1,
+                    req_id: 3000 + i
+                });
+            });
 
             const buyResponses = await Promise.all(buyPromises);
 
             const newTrades: ITradeResult[] = buyResponses.map((res, i) => {
-                if (res.error) return null;
+                if (res.error) {
+                    console.error(`[BulkTrade] Buy ${i} failed:`, res.error.message);
+                    return null;
+                }
                 const buy = res.buy;
+                console.log(`[BulkTrade] Order successful: Contract ID ${buy.contract_id}`);
                 return {
                     id: `bulk-${Date.now()}-${i}`,
                     contract_id: buy.contract_id,
-                    type: tradeType.toUpperCase().replace('_', ' '),
+                    type: side.toUpperCase(),
                     symbol: currentSymbol,
                     status: 'open',
                     entry: livePrice?.toFixed(pipRef.current[currentSymbol] ?? 2) ?? '—',
@@ -388,8 +411,13 @@ const BulkTradingPage: React.FC = observer(() => {
 
             setTrades(prev => [...newTrades, ...prev]);
 
+            if (newTrades.length < bulkCount) {
+                console.warn(`[BulkTrade] Only ${newTrades.length}/${bulkCount} trades succeeded.`);
+            }
+
         } catch (err: any) {
-            alert(`Execution Error: ${err.message || 'Unknown error'}`);
+            console.error('[BulkTrade] FATAL ERROR:', err);
+            alert(`Execution Error: ${err.message || 'Check Console for details'}`);
         } finally {
             setExecuting(false);
         }
