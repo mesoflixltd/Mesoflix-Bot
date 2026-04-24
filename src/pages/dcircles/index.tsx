@@ -283,9 +283,9 @@ const DCircles = observer(() => {
                                         strokeDashoffset={dashOffset}
                                         filter={isHottest ? `url(#glow${digit})` : undefined}
                                     />
-                                    {/* Digit label */}
-                                    <text x='50' y='46' className='dcircles-card__num'>{digit}</text>
-                                    <text x='50' y='61' className='dcircles-card__pct-inner'>{percentage}%</text>
+                                    {/* Digit label and Percentage */}
+                                    <text x='50' y='48' className='dcircles-card__num'>{digit}</text>
+                                    <text x='50' y='64' className='dcircles-card__pct-inner'>{percentage}%</text>
                                 </svg>
                             </div>
                             <div className='dcircles-card__footer'>
