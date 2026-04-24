@@ -214,7 +214,7 @@ const DCircles = observer(() => {
         let bias = 'NEUTRAL';
         if (even > odd) bias = 'EVEN';
         else if (odd > even) bias = 'ODD';
-        return { even, odd, evenPct: (even/total)*100, oddPct: (odd/total)*100, bias };
+        return { even, odd, evenPct: (even / total) * 100, oddPct: (odd / total) * 100, bias };
     }, [digitsWindow]);
 
     const riseFallStats = useMemo(() => {
@@ -223,10 +223,24 @@ const DCircles = observer(() => {
             if (priceWindow[i] > priceWindow[i - 1]) rise++;
             else if (priceWindow[i] < priceWindow[i - 1]) fall++;
         }
+        const total = rise + fall || 1;
         let bias = 'NEUTRAL';
         if (rise > fall) bias = 'BULLISH';
         else if (fall > rise) bias = 'BEARISH';
-        return { rise, fall, bias };
+        return { rise, fall, risePct: (rise / total) * 100, fallPct: (fall / total) * 100, bias };
+    }, [priceWindow]);
+
+    // Last 50 digits pattern for E/O badge trail
+    const last50 = useMemo(() => digitsWindow.slice(-50), [digitsWindow]);
+    // Last 50 rise/fall pattern
+    const last50RF = useMemo(() => {
+        const result: ('R' | 'F')[]=[];
+        const slice = priceWindow.slice(-51);
+        for (let i = 1; i < slice.length; i++) {
+            if (slice[i] > slice[i-1]) result.push('R');
+            else if (slice[i] < slice[i-1]) result.push('F');
+        }
+        return result.slice(-50);
     }, [priceWindow]);
 
     const isOffline = connStatus === 'closed' || connStatus === 'error';
@@ -235,55 +249,29 @@ const DCircles = observer(() => {
 
     return (
         <div className='dcircles-page'>
-            {/* Header */}
+
+            {/* ─── HEADER ─── */}
             <div className='dcircles-page__header'>
-                <div className='dcircles-page__title-wrap'>
-                    <h2 className='dcircles-page__title'>
-                        <Localize i18n_default_text='DCircles Digit Analysis' />
-                    </h2>
-                    <p className='dcircles-page__subtitle'>
-                        <Localize i18n_default_text='Live last-digit distribution across 1 000 ticks' />
-                    </p>
+                <div>
+                    <h2 className='dcircles-page__title'>DCircles Digit Analysis</h2>
+                    <p className='dcircles-page__subtitle'>Live last-digit distribution &amp; pattern engine</p>
                 </div>
-                <div className='dcircles-page__price'>
-                    <span className='dcircles-page__price-label'><Localize i18n_default_text='Live price' /></span>
-                    <span className='dcircles-page__price-value'>{formattedPrice}</span>
-                </div>
-                <div className={`dcircles-page__status dcircles-page__status--${connStatus}`}>
-                    <span className='dcircles-page__status-dot' />
-                    {connStatus}
-                </div>
-            </div>
-
-            {/* Summary pills */}
-            <div className='dcircles-page__summary'>
-                <div className='dcircles-pill dcircles-pill--hot'>
-                    <span className='dcircles-pill__icon'>🔥</span>
-                    <div>
-                        <div className='dcircles-pill__label'><Localize i18n_default_text='Hottest' /></div>
-                        <div className='dcircles-pill__value'>{hottestDigit >= 0 ? hottestDigit : '—'}</div>
+                <div className='dcircles-page__header-right'>
+                    <div className='dcircles-page__price'>
+                        <span className='dcircles-page__price-label'>Live Price</span>
+                        <span className='dcircles-page__price-value'>{formattedPrice}</span>
                     </div>
-                </div>
-                <div className='dcircles-pill dcircles-pill--cold'>
-                    <span className='dcircles-pill__icon'>❄️</span>
-                    <div>
-                        <div className='dcircles-pill__label'><Localize i18n_default_text='Coldest' /></div>
-                        <div className='dcircles-pill__value'>{coldestDigit >= 0 ? coldestDigit : '—'}</div>
-                    </div>
-                </div>
-                <div className='dcircles-pill'>
-                    <span className='dcircles-pill__icon'>📊</span>
-                    <div>
-                        <div className='dcircles-pill__label'><Localize i18n_default_text='Sample' /></div>
-                        <div className='dcircles-pill__value'>{totalTicks.toLocaleString()}</div>
+                    <div className={`dcircles-page__status dcircles-page__status--${connStatus}`}>
+                        <span className='dcircles-page__status-dot' />
+                        {connStatus}
                     </div>
                 </div>
             </div>
 
-            {/* Controls */}
+            {/* ─── CONTROLS ─── */}
             <div className='dcircles-page__controls'>
                 <div className='dcircles-control-group'>
-                    <label htmlFor='dcircles-symbol'><Localize i18n_default_text='Market' /></label>
+                    <label htmlFor='dcircles-symbol'>Market</label>
                     <div className='dcircles-page__select-wrap'>
                         <select id='dcircles-symbol' value={selectedSymbol} onChange={e => handleSymbolChange(e.target.value)}>
                             {symbols.map(s => <option key={s.symbol} value={s.symbol}>{s.display_name}</option>)}
@@ -291,73 +279,33 @@ const DCircles = observer(() => {
                         {liveLoading && <span className='dcircles-page__spinner' />}
                     </div>
                 </div>
-                
-                <div className='dcircles-control-group dcircles-control-group--ticks'>
-                    <label htmlFor='dcircles-ticks'><Localize i18n_default_text='Ticks' /></label>
-                    <input 
+                <div className='dcircles-control-group'>
+                    <label htmlFor='dcircles-ticks'>Ticks</label>
+                    <input
                         id='dcircles-ticks'
-                        type='number' 
-                        value={tickInputVal} 
+                        type='number'
+                        value={tickInputVal}
                         onChange={e => setTickInputVal(e.target.value)}
-                        onBlur={() => {
-                            const val = parseInt(tickInputVal, 10);
-                            if (!isNaN(val)) applyTickCount(val);
-                        }}
+                        onBlur={() => { const v = parseInt(tickInputVal, 10); if (!isNaN(v)) applyTickCount(v); }}
                         onKeyDown={handleTickKeyDown}
-                        min='50'
-                        max='5000'
+                        min='50' max='5000'
                     />
                 </div>
-            </div>
-
-            {/* Analysis */}
-            <div className='dcircles-analysis'>
-                <div className='dcircles-analysis__panel dcircles-analysis__panel--eo'>
-                    <h3><Localize i18n_default_text='Even / Odd' /></h3>
-                    <div className='dcircles-analysis__stats'>
-                        <div className='dcircles-stat dcircles-stat--even'>
-                            <span>Even</span>
-                            <strong>{evenOddStats.evenPct.toFixed(1)}%</strong>
-                        </div>
-                        <div className='dcircles-stat dcircles-stat--odd'>
-                            <span>Odd</span>
-                            <strong>{evenOddStats.oddPct.toFixed(1)}%</strong>
-                        </div>
-                    </div>
-                    <div className={`dcircles-analysis__bias dcircles-analysis__bias--${evenOddStats.bias.toLowerCase()}`}>
-                        {evenOddStats.bias} DOMINANT
-                    </div>
-                </div>
-
-                <div className='dcircles-analysis__panel dcircles-analysis__panel--rf'>
-                    <h3><Localize i18n_default_text='Rise / Fall' /></h3>
-                    <div className='dcircles-analysis__stats'>
-                        <div className='dcircles-stat dcircles-stat--rise'>
-                            <span>Rise</span>
-                            <strong>{riseFallStats.rise}</strong>
-                        </div>
-                        <div className='dcircles-stat dcircles-stat--fall'>
-                            <span>Fall</span>
-                            <strong>{riseFallStats.fall}</strong>
-                        </div>
-                    </div>
-                    <div className={`dcircles-analysis__bias dcircles-analysis__bias--${riseFallStats.bias.toLowerCase()}`}>
-                        {riseFallStats.bias} MOMENTUM
-                    </div>
+                <div className='dcircles-page__summary-inline'>
+                    <div className='dcircles-badge'><span>🔥</span><span>Hot</span><strong>{hottestDigit >= 0 ? hottestDigit : '—'}</strong></div>
+                    <div className='dcircles-badge'><span>❄️</span><span>Cold</span><strong>{coldestDigit >= 0 ? coldestDigit : '—'}</strong></div>
+                    <div className='dcircles-badge'><span>📊</span><span>Sample</span><strong>{totalTicks.toLocaleString()}</strong></div>
                 </div>
             </div>
 
-            {/* Offline notice */}
             {isOffline && (
-                <div className='dcircles-page__offline'>
-                    ⚠ <Localize i18n_default_text='Live data unavailable — showing cached distribution.' />
-                </div>
+                <div className='dcircles-page__offline'>⚠ Live data unavailable — showing cached distribution.</div>
             )}
 
-            {/* Digit Grid */}
+            {/* ─── DIGIT GRID ─── */}
             <div className='dcircles-grid'>
                 {digitStats.map(({ digit, percentage }) => {
-                    const heat   = getHeat(percentage);
+                    const heat      = getHeat(percentage);
                     const isHottest = digit === hottestDigit;
                     const isLowest  = digit === coldestDigit;
                     const isFlash   = digit === lastDigit;
@@ -375,7 +323,6 @@ const DCircles = observer(() => {
                         >
                             {isFlash && <div className='dcircles-card__cursor'>▼</div>}
                             <div className='dcircles-card__ring'>
-
                                 <svg viewBox='0 0 100 100' className='dcircles-card__svg'>
                                     <circle cx='50' cy='50' r={RING_R} className='dcircles-card__track' />
                                     <circle
@@ -387,17 +334,58 @@ const DCircles = observer(() => {
                                 </svg>
                                 <div className='dcircles-card__num'>{digit}</div>
                             </div>
-                            <div className='dcircles-card__pct-pill'>
-                                {percentage}%
-                            </div>
+                            <div className='dcircles-card__pct-pill'>{percentage}%</div>
                         </div>
                     );
                 })}
             </div>
-            
-            <div className='dcircles-page__footer-stats'>
-                Highest: <strong>{digitStats[hottestDigit]?.percentage}%</strong> | Lowest: <strong>{digitStats[coldestDigit]?.percentage}%</strong>
+
+            {/* ─── EVEN / ODD PANEL ─── */}
+            <div className='dcircles-analysis-block'>
+                <div className='dcircles-analysis-block__title'>Even / Odd Pattern</div>
+                <div className='dcircles-analysis-block__bars'>
+                    <div className='dcircles-bar dcircles-bar--even'>
+                        <strong>{evenOddStats.evenPct.toFixed(1)}%</strong>
+                        <span>EVEN</span>
+                    </div>
+                    <div className='dcircles-bar dcircles-bar--odd'>
+                        <strong>{evenOddStats.oddPct.toFixed(1)}%</strong>
+                        <span>ODD</span>
+                    </div>
+                </div>
+                <div className='dcircles-analysis-block__trail-label'>Last 50 Digits Pattern</div>
+                <div className='dcircles-analysis-block__trail'>
+                    {last50.map((d, i) => (
+                        <span key={i} className={`dcircles-badge-dot dcircles-badge-dot--${d % 2 === 0 ? 'even' : 'odd'}`}>
+                            {d % 2 === 0 ? 'E' : 'O'}
+                        </span>
+                    ))}
+                </div>
             </div>
+
+            {/* ─── RISE / FALL PANEL ─── */}
+            <div className='dcircles-analysis-block'>
+                <div className='dcircles-analysis-block__title'>Market Movement</div>
+                <div className='dcircles-analysis-block__bars'>
+                    <div className='dcircles-bar dcircles-bar--rise'>
+                        <strong>{riseFallStats.risePct.toFixed(1)}%</strong>
+                        <span>RISE</span>
+                    </div>
+                    <div className='dcircles-bar dcircles-bar--fall'>
+                        <strong>{riseFallStats.fallPct.toFixed(1)}%</strong>
+                        <span>FALL</span>
+                    </div>
+                </div>
+                <div className='dcircles-analysis-block__trail-label'>Last 50 Ticks Movement</div>
+                <div className='dcircles-analysis-block__trail'>
+                    {last50RF.map((rf, i) => (
+                        <span key={i} className={`dcircles-badge-dot dcircles-badge-dot--${rf === 'R' ? 'rise' : 'fall'}`}>
+                            {rf}
+                        </span>
+                    ))}
+                </div>
+            </div>
+
         </div>
     );
 });
