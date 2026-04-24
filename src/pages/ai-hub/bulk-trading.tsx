@@ -291,16 +291,26 @@ const BulkTradingPage: React.FC = observer(() => {
         };
     }, [wsUrl, subscribe, setStatus, wsRef]);
 
+    const [balance, setBalance] = useState<string>('0.00');
+    const [currency, setCurrency] = useState<string>('USD');
+
     useEffect(() => {
         const sub = api_base.api?.onMessage().subscribe((msg: any) => {
+            if (msg.msg_type === 'balance') {
+                setBalance(Number(msg.balance.balance).toFixed(2));
+                setCurrency(msg.balance.currency);
+            }
             if (msg.msg_type === 'proposal_open_contract') {
                 const poc = msg.proposal_open_contract;
                 if (poc) {
                     setTrades(prev => prev.map(tr => {
                         if (tr.contract_id === poc.contract_id) {
+                            const isSold = !!poc.is_sold;
+                            const finalStatus = isSold ? (poc.status === 'won' ? 'won' : 'lost') : 'open';
+                            
                             return {
                                 ...tr,
-                                status: poc.status === 'won' ? 'won' : (poc.status === 'lost' ? 'lost' : 'open'),
+                                status: finalStatus,
                                 exit: poc.exit_tick_display_value ?? poc.exit_tick ?? tr.exit,
                                 profit: Number(poc.profit ?? 0)
                             };
@@ -491,6 +501,10 @@ const BulkTradingPage: React.FC = observer(() => {
                     >
                         Frequent
                     </button>
+                    <div className='bt-live-wallet'>
+                        <span className='bt-wallet-label'>Balance:</span>
+                        <span className='bt-wallet-value'>{balance} {currency}</span>
+                    </div>
                 </div>
             </div>
 

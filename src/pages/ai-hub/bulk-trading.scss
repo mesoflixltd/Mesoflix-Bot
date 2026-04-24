@@ -385,8 +385,41 @@ $dc-cold:    #90caf9;
     h3 { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.05em; color: var(--text-prominent); }
 }
 
-.bt-run-mode { display: flex; background: var(--general-main-1); padding: 0.25rem; border-radius: 0.8rem; border: 1px solid var(--general-section-2); }
+.bt-run-mode { 
+    display: flex; 
+    align-items: center;
+    background: var(--general-main-1); 
+    padding: 0.25rem 0.8rem; 
+    border-radius: 0.8rem; 
+    border: 1px solid var(--general-section-2); 
+    gap: 0.5rem;
+}
 .bt-mode-btn { padding: 0.4rem 1.2rem; border-radius: 0.6rem; background: transparent; border: none; color: var(--text-less-prominent); font-weight: 600; cursor: pointer; &.active { background: $purple; color: white; font-weight: 800; } }
+
+.bt-live-wallet {
+    margin-left: 0.8rem;
+    padding-left: 0.8rem;
+    border-left: 1px solid var(--general-section-2);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    white-space: nowrap;
+
+    .bt-wallet-label {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--text-less-prominent);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .bt-wallet-value {
+        font-size: 0.95rem;
+        color: $green;
+        font-weight: 800;
+        font-family: 'Roboto Mono', monospace;
+    }
+}
 
 .bt-config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.6rem; }
 .bt-config-item {
