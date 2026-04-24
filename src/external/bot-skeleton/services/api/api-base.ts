@@ -299,7 +299,13 @@ class APIBase {
                                     globalObserver.emit('bot.contract', contract);
                                     
                                     // Handle completion
-                                    if (contract.is_sold) {
+                                    const is_closed = 
+                                        contract.is_sold || 
+                                        contract.is_expired || 
+                                        contract.is_settleable || 
+                                        (contract.status && contract.status !== 'open');
+
+                                    if (is_closed) {
                                         globalObserver.emit('contract.status', { 
                                             id: 'contract.sold', 
                                             data: contract.transaction_ids?.sell, 
