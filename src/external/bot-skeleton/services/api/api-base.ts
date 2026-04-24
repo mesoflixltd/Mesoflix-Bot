@@ -34,8 +34,8 @@ type SubscriptionPromise = Promise<{
 type TApiBaseApi = {
     connection: {
         readyState: keyof typeof socket_state;
-        addEventListener: (event: string, callback: () => void) => void;
-        removeEventListener: (event: string, callback: () => void) => void;
+        addEventListener: (event: string, callback: (event: any) => void) => void;
+        removeEventListener: (event: string, callback: (event: any) => void) => void;
     };
     send: (data: unknown) => Promise<any>;
     disconnect: () => void;
@@ -122,10 +122,12 @@ class APIBase {
 
         if (account_id) {
             localStorage.setItem('active_loginid', account_id);
+            // Remove account_id from URL after storing
             removeUrlParameter('account_id');
         }
         if (accountType) {
             localStorage.setItem('account_type', accountType);
+            // Remove account_type from URL after storing
             removeUrlParameter('account_type');
         }
 
@@ -139,9 +141,12 @@ class APIBase {
                 if (storedAccounts) {
                     const accounts = JSON.parse(storedAccounts);
                     if (accounts && accounts.length > 0 && accounts[0].account_id) {
+                        // Use the first account as default
                         const accountId = accounts[0].account_id as string;
                         activeAccountId = accountId;
                         localStorage.setItem('active_loginid', accountId);
+
+                        // Set account type based on account_id prefix
                         const isDemo = accountId.startsWith('VRT') || accountId.startsWith('VRTC');
                         localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
                     }
@@ -151,6 +156,7 @@ class APIBase {
             }
         }
 
+        // Now proceed with normal authorization if we have an account_id
         if (activeAccountId) {
             setIsAuthorizing(true);
             await this.authorizeAndSubscribe();
@@ -158,6 +164,7 @@ class APIBase {
     }
 
     onsocketclose() {
+        console.log('[APIBase] Socket closed');
         setConnectionStatus(CONNECTION_STATUS.CLOSED);
         this.reconnectIfNotConnected();
     }
@@ -333,7 +340,7 @@ class APIBase {
                             const account_exists = mapped_account_list.some(
                                 (account: Record<string, any>) => account.loginid === data.loginid
                             );
-                            const next_account_list = account_exists
+                            const next_account_list = (account_exists
                                 ? mapped_account_list
                                 : [
                                       ...mapped_account_list,
@@ -343,7 +350,7 @@ class APIBase {
                                           currency: data.currency || 'USD',
                                           is_virtual: getAccountType(data.loginid) === 'real' ? 0 : 1,
                                       },
-                                  ];
+                                  ]) as any;
 
                             setAccountList(next_account_list);
                             setAuthData({
@@ -352,7 +359,8 @@ class APIBase {
                                 currency: data.currency,
                                 loginid: data.loginid,
                                 account_list: next_account_list,
-                            });
+                                is_virtual: getAccountType(data.loginid) === 'real' ? 0 : 1,
+                            } as any);
 
                             // Also push to the client store so the header balance refreshes
                             const currentClientStore = globalObserver.getState('client.store');
@@ -601,10 +609,7 @@ class APIBase {
         };
 
         const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
-        // Sequential subscription to avoid socket congestion/timeouts during handshake
-        for (const streamName of streamsToSubscribe) {
-            await subscribeToStream(streamName);
-        }
+        await Promise.all(streamsToSubscribe.map(subscribeToStream));
     }
 
     getActiveSymbols = async () => {
@@ -618,13 +623,10 @@ class APIBase {
         for (let attempt = 1; attempt <= ACTIVE_SYMBOLS_MAX_RETRIES; attempt++) {
             try {
                 const timeout = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS || 30000)
+                    setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
                 );
-                
-                console.log(`[APIBase] Fetching active symbols (attempt ${attempt})...`);
-                // Use direct send instead of doUntilDone for initialization requests 
-                // to avoid being rejected by is_running check in recoverFromError.
-                const activeSymbolsPromise = this.api?.send({ active_symbols: 'brief' });
+
+                const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
                 const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
                 const { active_symbols = [], error = {} } = apiResult as any;
 
