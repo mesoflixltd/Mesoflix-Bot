@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { OAuthTokenExchangeService } from '@/services/oauth-token-exchange.service';
 import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
+import { authData$ } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
 import './bulk-trading.scss';
 
 // ── Constants (Synced with DCircles) ──────────────────────────────────────────
