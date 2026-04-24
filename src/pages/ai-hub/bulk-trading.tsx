@@ -353,11 +353,16 @@ const BulkTradingPage: React.FC = observer(() => {
                 barrier
             };
 
-            // 2. Parallel Proposal Fetching (Crucial: Proposal IDs are consumed on purchase)
+            // 2. Fetch Unique Proposals (Forced via Passthrough to avoid API caching)
             console.log(`[BulkTrade] Requesting ${bulkCount} unique proposals...`);
             const proposalPromises = [];
             for (let i = 0; i < bulkCount; i++) {
-                proposalPromises.push(api_base.api.send({ ...baseProposal, req_id: 2000 + i }));
+                // Add passthrough to ensure unique IDs from server
+                proposalPromises.push(api_base.api.send({ 
+                    ...baseProposal, 
+                    passthrough: { bulk_index: i },
+                    req_id: 2000 + i 
+                }));
             }
             const proposalResponses = await Promise.all(proposalPromises);
             
@@ -374,45 +379,57 @@ const BulkTradingPage: React.FC = observer(() => {
                 throw new Error(firstErr || 'Failed to obtain trading proposals');
             }
 
-            console.log(`[BulkTrade] Obtained ${validProposals.length} proposals. Executing Buy...`);
+            console.log(`[BulkTrade] Obtained ${validProposals.length} unique proposals. Sequential execution starting...`);
 
-            // 3. Parallel Batch Buy
-            const buyPromises = validProposals.map((prop, i) => {
-                console.log(`[BulkTrade] Sending Buy for Proposal: ${prop.id}`);
-                return api_base.api.send({
-                    buy: prop.id,
-                    price: prop.price,
-                    subscribe: 1,
-                    req_id: 3000 + i
-                });
-            });
+            // 3. Sequential Execution with tiny staggered delay (Stops race conditions)
+            const newTrades: ITradeResult[] = [];
+            for (let i = 0; i < validProposals.length; i++) {
+                const prop = validProposals[i];
+                try {
+                    console.log(`[BulkTrade] Buying Position ${i + 1}/${validProposals.length} (ID: ${prop.id.slice(0, 8)}...)`);
+                    
+                    const buyRes = await api_base.api.send({
+                        buy: prop.id,
+                        price: prop.price,
+                        subscribe: 1,
+                        req_id: 3000 + i
+                    });
 
-            const buyResponses = await Promise.all(buyPromises);
+                    if (buyRes.error) {
+                        console.error(`[BulkTrade] Buy ${i} failed:`, buyRes.error.message);
+                        continue;
+                    }
 
-            const newTrades: ITradeResult[] = buyResponses.map((res, i) => {
-                if (res.error) {
-                    console.error(`[BulkTrade] Buy ${i} failed:`, res.error.message);
-                    return null;
+                    const buy = buyRes.buy;
+                    console.log(`[BulkTrade] ✅ Position ${i + 1} Success! Contract: ${buy.contract_id}`);
+                    
+                    newTrades.push({
+                        id: `bulk-${Date.now()}-${i}`,
+                        contract_id: buy.contract_id,
+                        type: side.toUpperCase(),
+                        symbol: currentSymbol,
+                        status: 'open',
+                        entry: livePrice?.toFixed(pipRef.current[currentSymbol] ?? 2) ?? '—',
+                        profit: 0,
+                        stake: currentStake,
+                        time: Date.now()
+                    });
+
+                    // Add a tiny 100ms gap to avoid server race conditions
+                    if (i < validProposals.length - 1) {
+                        await new Promise(r => setTimeout(r, 100));
+                    }
+                } catch (buyErr: any) {
+                    console.error(`[BulkTrade] Critical failure on buy ${i}:`, buyErr);
                 }
-                const buy = res.buy;
-                console.log(`[BulkTrade] Order successful: Contract ID ${buy.contract_id}`);
-                return {
-                    id: `bulk-${Date.now()}-${i}`,
-                    contract_id: buy.contract_id,
-                    type: side.toUpperCase(),
-                    symbol: currentSymbol,
-                    status: 'open',
-                    entry: livePrice?.toFixed(pipRef.current[currentSymbol] ?? 2) ?? '—',
-                    profit: 0,
-                    stake: currentStake,
-                    time: Date.now()
-                } as ITradeResult;
-            }).filter(t => t !== null) as ITradeResult[];
+            }
 
             setTrades(prev => [...newTrades, ...prev]);
 
             if (newTrades.length < bulkCount) {
-                console.warn(`[BulkTrade] Only ${newTrades.length}/${bulkCount} trades succeeded.`);
+                console.warn(`[BulkTrade] Partial success: ${newTrades.length}/${bulkCount} positions filled.`);
+            } else {
+                console.log(`[BulkTrade] 🎉 Bulk Execution Complete. ${newTrades.length} positions filled.`);
             }
 
         } catch (err: any) {
