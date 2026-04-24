@@ -120,7 +120,7 @@ const AIHub = observer(() => {
                     <h1>AI Hub</h1>
                     <p>Your intelligent trading command centre — powered by machine learning and real-time market data.</p>
                 </div>
-                <div className='aihub-header__badge'>Mesoflix Intelligence</div>
+                <div className='aihub-header__badge'>Ai Intelligence</div>
             </div>
 
             {/* ─── Tab Bar ─── */}

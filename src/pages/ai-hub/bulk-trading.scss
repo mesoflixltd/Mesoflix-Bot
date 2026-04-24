@@ -2,7 +2,7 @@
    Bulk Trading — Live Analysis Panel (ai-hub sub-page)
    ═══════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700&family=Inter:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700;800&family=Inter:wght@400;600;700;800&display=swap');
 
 $green:  #00e676;
 $red:    #ff5252;
@@ -10,13 +10,19 @@ $blue:   #00b4ff;
 $purple: #7f5cff;
 $gold:   #f5a623;
 
+/* DCircles Heat Colors */
+$dc-hot:     #ff9100;
+$dc-warm:    #ffc400;
+$dc-neutral: #448aff;
+$dc-cold:    #90caf9;
+
 /* ─── Page shell ──────────────────────────────────────────────────────────── */
 .bt-page {
     display:        flex;
     flex-direction: column;
-    flex:           1;          // fill .aihub-content
-    min-height:     0;          // critical: allows children to shrink/scroll
-    overflow:       hidden;     // header + tabs + type-bar all stay fixed
+    flex:           1;
+    min-height:     0;
+    overflow:       hidden;
     background:     var(--general-main-1);
     color:          var(--text-prominent);
     font-family:    'Inter', sans-serif;
@@ -29,8 +35,10 @@ $gold:   #f5a623;
     gap:            0.5rem;
     padding:        0.3rem 0.9rem;
     border-radius:  2rem;
-    font-size:      1.15rem;
-    font-weight:    700;
+    font-size:      1rem;
+    font-weight:    800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 
     &--ok    { background: rgba(0, 230, 118, 0.12); color: $green; }
     &--info  { background: rgba(0, 180, 255, 0.12); color: $blue;  }
@@ -44,7 +52,7 @@ $gold:   #f5a623;
     justify-content: space-between;
     align-items:     center;
     gap:             1.2rem;
-    padding:         1.2rem 1.6rem;
+    padding:         1rem 1.6rem;
     border-bottom:   1px solid var(--general-section-1);
     flex-shrink:     0;
     flex-wrap:       wrap;
@@ -53,7 +61,6 @@ $gold:   #f5a623;
         display:     flex;
         align-items: center;
         gap:         1rem;
-        flex-wrap:   wrap;
     }
 }
 
@@ -63,15 +70,16 @@ $gold:   #f5a623;
     gap:         0.6rem;
 
     &__label {
-        font-size:   1.1rem;
+        font-size:   0.9rem;
         font-weight: 600;
         color:       var(--text-less-prominent);
+        text-transform: uppercase;
     }
 
     &__value {
         font-family: 'Roboto Mono', monospace;
-        font-size:   1.6rem;
-        font-weight: 700;
+        font-size:   1.4rem;
+        font-weight: 800;
         color:       var(--text-prominent);
     }
 
@@ -79,29 +87,28 @@ $gold:   #f5a623;
         display:        inline-flex;
         align-items:    center;
         justify-content:center;
-        width:          2.6rem;
-        height:         2.6rem;
+        width:          2.2rem;
+        height:         2.2rem;
         border-radius:  50%;
         background:     $purple;
         color:          white;
         font-weight:    800;
-        font-size:      1.4rem;
+        font-size:      1.2rem;
         font-family:    'Roboto Mono', monospace;
         animation:      bt-pop 0.3s ease;
     }
 }
 
 .bt-select {
-    padding:       0.6rem 1rem;
-    border-radius: 0.8rem;
-    border:        1.5px solid var(--general-section-2);
+    padding:       0.5rem 0.8rem;
+    border-radius: 0.6rem;
+    border:        1px solid var(--general-section-1);
     background:    var(--general-section-1);
     color:         var(--text-prominent);
-    font-size:     1.2rem;
+    font-size:     0.95rem;
     font-weight:   600;
     cursor:        pointer;
     outline:       none;
-    transition:    border-color 0.2s;
 
     &:focus { border-color: $purple; }
 }
@@ -111,29 +118,28 @@ $gold:   #f5a623;
     gap:     0;
 
     input {
-        width:          8rem;
-        padding:        0.6rem 0.8rem;
-        border:         1.5px solid var(--general-section-2);
+        width:          60px;
+        padding:        0.5rem 0.8rem;
+        border:         1px solid var(--general-section-1);
         border-right:   none;
-        border-radius:  0.8rem 0 0 0.8rem;
+        border-radius:  0.6rem 0 0 0.6rem;
         background:     var(--general-main-1);
         color:          var(--text-prominent);
         font-family:    'Roboto Mono', monospace;
-        font-size:      1.3rem;
+        font-size:      1rem;
         outline:        none;
         &:focus { border-color: $purple; }
     }
 
     button {
-        padding:       0.6rem 1rem;
-        border:        1.5px solid $purple;
-        border-radius: 0 0.8rem 0.8rem 0;
+        padding:       0.5rem 0.8rem;
+        border:        1px solid $purple;
+        border-radius: 0 0.6rem 0.6rem 0;
         background:    $purple;
         color:         white;
         font-weight:   800;
-        font-size:     1.2rem;
+        font-size:     0.9rem;
         cursor:        pointer;
-        transition:    opacity 0.2s;
 
         &:hover { opacity: 0.85; }
     }
@@ -142,12 +148,12 @@ $gold:   #f5a623;
 /* ─── Trade-type tab bar ──────────────────────────────────────────────────── */
 .bt-type-tabs {
     display:          flex;
-    gap:              0;
+    gap:              0.5rem;
     overflow-x:       auto;
     flex-shrink:      0;
     scrollbar-width:  none;
     border-bottom:    1px solid var(--general-section-1);
-    padding:          0 1.2rem;
+    padding:          0.5rem 1.2rem;
 
     &::-webkit-scrollbar { display: none; }
 }
@@ -155,32 +161,32 @@ $gold:   #f5a623;
 .bt-type-tab {
     display:        flex;
     align-items:    center;
-    gap:            0.5rem;
-    padding:        0.9rem 1.4rem;
-    border:         none;
-    border-bottom:  3px solid transparent;
-    margin-bottom:  -1px;
+    gap:            0.4rem;
+    padding:        0.6rem 1.2rem;
+    border:         1px solid transparent;
+    border-radius:  0.6rem;
     background:     transparent;
     color:          var(--text-less-prominent);
-    font-size:      1.2rem;
+    font-size:      1.05rem;
     font-weight:    600;
     cursor:         pointer;
     white-space:    nowrap;
     transition:     all 0.2s;
 
-    &:hover        { color: var(--text-prominent); }
+    &:hover        { background: var(--general-section-2); }
 
     &--active {
-        color:        var(--text-prominent);
+        color:        white;
         font-weight:  800;
+        background:   $purple !important;
         border-color: $purple;
     }
 }
 
 /* ─── Trade type description ──────────────────────────────────────────────── */
 .bt-type-desc {
-    padding:    0.6rem 1.6rem;
-    font-size:  1.1rem;
+    padding:    0.5rem 1.6rem;
+    font-size:  0.9rem;
     color:      var(--text-less-prominent);
     flex-shrink:0;
     border-bottom: 1px solid var(--general-section-1);
@@ -191,11 +197,10 @@ $gold:   #f5a623;
     flex:                     1;
     overflow-y:               auto;
     overflow-x:               hidden;
-    padding:                  1.6rem;
-    padding-bottom:           6rem;
-    -webkit-overflow-scrolling: touch;
+    padding:                  1.4rem;
+    padding-bottom:           4rem;
 
-    &::-webkit-scrollbar          { width: 5px; }
+    &::-webkit-scrollbar          { width: 4px; }
     &::-webkit-scrollbar-track    { background: transparent; }
     &::-webkit-scrollbar-thumb    { background: var(--general-section-2); border-radius: 4px; }
 }
@@ -205,14 +210,13 @@ $gold:   #f5a623;
     display:         flex;
     flex-direction:  column;
     align-items:     center;
-    gap:             1.2rem;
+    gap:             1rem;
     padding:         4rem;
     color:           var(--text-less-prominent);
-    font-size:       1.3rem;
 
     &__spinner {
-        width:         2.8rem;
-        height:        2.8rem;
+        width:         2.4rem;
+        height:        2.4rem;
         border:        3px solid var(--general-section-2);
         border-top:    3px solid $purple;
         border-radius: 50%;
@@ -220,164 +224,227 @@ $gold:   #f5a623;
     }
 }
 
-/* ─── Analysis wrapper ────────────────────────────────────────────────────── */
+/* ─── Analysis common ─────────────────────────────────────────────────────── */
 .bt-analysis {
     display:        flex;
     flex-direction: column;
-    gap:            1.4rem;
+    gap:            1.6rem;
     animation:      bt-fade-up 0.3s ease;
 
     &__title {
         display:         flex;
         justify-content: space-between;
         align-items:     center;
-        font-size:       1.3rem;
-        font-weight:     700;
+        font-size:       1.1rem;
+        font-weight:     800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
         color:           var(--text-prominent);
-
-        &--sub {
-            font-size: 1.15rem;
-            color:     var(--text-less-prominent);
-            margin-top: 0.4rem;
-        }
     }
 
     &__subtitle {
-        font-size:  1.1rem;
+        font-size:  0.9rem;
         font-weight:400;
+        text-transform: none;
+        letter-spacing: normal;
         color:      var(--text-less-prominent);
     }
 }
 
-/* ─── Digit grid ──────────────────────────────────────────────────────────── */
-.bt-digit-grid {
+/* ─── DCircles Style Grid & Cards ─────────────────────────────────────────── */
+.bt-dc-grid {
     display:               grid;
     grid-template-columns: repeat(10, 1fr);
-    gap:                   0.5rem;
+    gap:                   0.6rem;
+    padding:               1.2rem;
+    background:            var(--general-section-1);
+    border-radius:         1rem;
+    border:                1px solid var(--general-section-1);
 
-    @media (max-width: 640px) {
-        grid-template-columns: repeat(5, 1fr);
-    }
+    @media (max-width: 900px) { grid-template-columns: repeat(5, 1fr); }
 }
 
-.bt-digit-cell {
-    display:         flex;
-    flex-direction:  column;
-    align-items:     center;
-    gap:             0.3rem;
-    padding:         0.8rem 0.4rem;
-    border-radius:   0.8rem;
-    border:          1.5px solid var(--general-section-2);
-    background:      var(--general-section-1);
-    transition:      all 0.2s;
-    cursor:          default;
+.bt-dc-card {
+    position:      relative;
+    background:    var(--general-main-1);
+    border:        1px solid var(--general-section-1);
+    border-radius: 12px;
+    padding:       0.8rem 0.4rem;
+    display:       flex;
+    flex-direction:column;
+    align-items:   center;
+    gap:           0.5rem;
+    transition:    all 0.2s ease;
 
-    &--high   { border-color: rgba($green, 0.5); background: rgba($green, 0.06); }
-    &--med    { border-color: rgba($blue, 0.4);  background: rgba($blue, 0.04); }
-    &--low    { border-color: var(--general-section-2); }
-    &--even   { border-color: rgba($blue, 0.4);  background: rgba($blue, 0.04); }
-    &--odd    { border-color: rgba($red, 0.4);   background: rgba($red, 0.04); }
+    &:hover { transform: translateY(-3px); border-color: $purple; }
 
-    &--flash  {
-        border-color: $gold !important;
-        background:   rgba($gold, 0.12) !important;
-        animation:    bt-pop 0.4s ease;
+    &--hot     { --bt-ring: #{$dc-hot}; }
+    &--warm    { --bt-ring: #{$dc-warm}; }
+    &--neutral { --bt-ring: #{$dc-neutral}; }
+    &--cold    { --bt-ring: #{$dc-cold}; }
+
+    &--highest {
+        border-color: #{$green};
+        box-shadow: 0 0 10px rgba($green, 0.2);
+        .bt-dc-card__arc { stroke: #{$green} !important; }
+        .bt-dc-card__pct-pill { color: #{$green}; }
+    }
+
+    &--lowest {
+        border-color: #{$red};
+        box-shadow: 0 0 10px rgba($red, 0.2);
+        .bt-dc-card__arc { stroke: #{$red} !important; }
+        .bt-dc-card__pct-pill { color: #{$red}; }
+    }
+
+    &--flash { animation: bt-flash 0.4s ease-out; }
+
+    &__cursor {
+        position: absolute;
+        top:      -16px;
+        left:     50%;
+        transform:translateX(-50%);
+        font-size: 0.8rem;
+        color:     $blue;
+        text-shadow: 0 0 6px rgba($blue, 0.9);
+        animation: bt-bounce 0.5s infinite alternate ease-in-out;
+    }
+
+    &__ring {
+        width:    54px;
+        height:   54px;
+        position: relative;
+    }
+
+    &__svg {
+        width:    100%;
+        height:   100%;
+        transform:rotate(-90deg);
+    }
+
+    &__track {
+        stroke:       var(--general-section-1);
+        stroke-width: 7;
+        fill:         none;
+    }
+
+    &__arc {
+        stroke:         var(--bt-ring);
+        stroke-width:   7;
+        stroke-linecap: round;
+        fill:           none;
+        transition:     stroke-dashoffset 0.4s ease;
     }
 
     &__num {
-        font-family: 'Roboto Mono', monospace;
-        font-size:   1.8rem;
-        font-weight: 800;
-        color:       var(--text-prominent);
+        position:       absolute;
+        inset:          0;
+        display:        flex;
+        align-items:    center;
+        justify-content:center;
+        font-size:      1.4rem;
+        font-weight:    800;
+        font-family:    'Roboto Mono', monospace;
+        color:          var(--text-prominent);
     }
 
-    &__bar-wrap {
-        width:         100%;
-        height:        5rem;
-        background:    var(--general-main-1);
-        border-radius: 0.4rem;
-        overflow:      hidden;
-        display:       flex;
-        align-items:   flex-end;
-    }
-
-    &__bar {
-        width:         100%;
-        min-height:    2px;
-        background:    linear-gradient(180deg, $purple, $blue);
-        border-radius: 0.4rem 0.4rem 0 0;
-        transition:    height 0.4s ease;
-    }
-
-    &--even &__bar { background: linear-gradient(180deg, $blue, darken($blue, 10%)); }
-    &--odd  &__bar { background: linear-gradient(180deg, $red,  darken($red, 10%)); }
-
-    &__pct {
-        font-size:   1rem;
+    &__pct-pill {
+        font-size:   0.75rem;
         font-weight: 700;
-        color:       var(--text-prominent);
         font-family: 'Roboto Mono', monospace;
-    }
-
-    &__count {
-        font-size:  0.9rem;
-        color:      var(--text-less-prominent);
-        font-family:'Roboto Mono', monospace;
+        color:       var(--text-less-prominent);
     }
 }
 
-/* ─── Even/Odd bars ───────────────────────────────────────────────────────── */
+/* ─── Even / Odd Styles ───────────────────────────────────────────────────── */
 .bt-eo-bars {
     display:        flex;
     flex-direction: column;
-    gap:            0.8rem;
+    gap:            1rem;
+    padding:        1.4rem;
+    background:     var(--general-section-1);
+    border-radius:  1rem;
 }
 
 .bt-eo-bar-row {
     display:     flex;
     align-items: center;
-    gap:         0.8rem;
+    gap:         1rem;
 
     &__label {
-        min-width:   6rem;
-        font-size:   1.2rem;
-        font-weight: 700;
+        min-width:   4.5rem;
+        font-size:   1rem;
+        font-weight: 800;
+        text-transform: uppercase;
         color:       var(--text-prominent);
     }
 
     &__track {
         flex:          1;
-        height:        1.4rem;
-        background:    var(--general-section-2);
-        border-radius: 0.7rem;
+        height:        1.2rem;
+        background:    var(--general-main-1);
+        border-radius: 1rem;
         overflow:      hidden;
+        border:        1px solid var(--general-section-1);
     }
 
     &__fill {
         height:        100%;
-        border-radius: 0.7rem;
-        transition:    width 0.5s ease;
+        transition:    width 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
-        &--even { background: linear-gradient(90deg, $blue, lighten($blue, 10%)); }
-        &--odd  { background: linear-gradient(90deg, $red,  lighten($red, 10%)); }
-        &--rise { background: linear-gradient(90deg, $green, lighten($green, 10%)); }
-        &--fall { background: linear-gradient(90deg, $red,   lighten($red, 10%)); }
+        &--even { background: linear-gradient(90deg, #{$green}, lighten($green, 10%)); }
+        &--odd  { background: linear-gradient(90deg, #{$red}, lighten($red, 10%)); }
+        &--rise { background: linear-gradient(90deg, #{$green}, lighten($green, 10%)); }
+        &--fall { background: linear-gradient(90deg, #{$red}, lighten($red, 10%)); }
     }
 
     &__pct {
-        min-width:  4rem;
-        font-size:  1.15rem;
-        font-weight:700;
-        font-family:'Roboto Mono', monospace;
-        color:       var(--text-prominent);
+        min-width:   4.2rem;
+        font-size:   1.2rem;
+        font-weight: 800;
+        font-family: 'Roboto Mono', monospace;
         text-align:  right;
+        color:       var(--text-prominent);
     }
 
     &__count {
-        font-size:  1rem;
+        min-width:  3rem;
+        font-size:  0.9rem;
+        font-weight:600;
         color:      var(--text-less-prominent);
-        font-family:'Roboto Mono', monospace;
     }
+}
+
+.bt-streak-box {
+    display:    flex;
+    gap:        1rem;
+}
+
+.bt-streak-item {
+    flex:           1;
+    background:     var(--general-section-1);
+    padding:        1rem;
+    border-radius:  0.8rem;
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            0.3rem;
+    border:         1px solid var(--general-section-2);
+}
+
+.bt-streak-label {
+    font-size:      0.7rem;
+    font-weight:    800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color:          var(--text-less-prominent);
+}
+
+.bt-streak-value {
+    font-size:      1.4rem;
+    font-weight:    800;
+    font-family:    'Roboto Mono', monospace;
+    color:          $purple;
 }
 
 /* ─── Trail ───────────────────────────────────────────────────────────────── */
@@ -387,20 +454,17 @@ $gold:   #f5a623;
     gap:            0.6rem;
 
     &__label {
-        font-size:  1.1rem;
-        font-weight:600;
-        color:      var(--text-less-prominent);
+        font-size:      0.75rem;
+        font-weight:    800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color:          var(--text-less-prominent);
     }
 
     &__row {
         display:          flex;
         flex-wrap:        wrap;
-        gap:              0.3rem;
-        max-height:       12rem;
-        overflow-y:       auto;
-        scrollbar-width:  thin;
-
-        &--prices { gap: 0.4rem; }
+        gap:              0.4rem;
     }
 }
 
@@ -411,44 +475,33 @@ $gold:   #f5a623;
     width:           2.2rem;
     height:          2.2rem;
     border-radius:   50%;
-    font-size:       1.1rem;
-    font-weight:     700;
+    font-size:       0.7rem;
+    font-weight:     800;
     font-family:     'Roboto Mono', monospace;
-    transition:      transform 0.2s;
     color:           white;
 
-    &--high    { background: rgba($green,  0.75); }
-    &--low     { background: rgba($purple, 0.7);  }
-    &--even    { background: rgba($blue,   0.75); }
-    &--odd     { background: rgba($red,    0.75); }
-    &--rise    { background: rgba($green,  0.75); }
-    &--fall    { background: rgba($red,    0.75); }
-    &--latest  { transform: scale(1.25); box-shadow: 0 0 6px rgba($gold, 0.6); }
+    &--high    { background: rgba($green, 0.7); border: 1px solid rgba($green, 0.2); }
+    &--low     { background: rgba($purple, 0.6); border: 1px solid rgba($purple, 0.2); }
+    &--even    { background: rgba($green, 0.15); color: $green; border: 1px solid rgba($green, 0.3); }
+    &--odd     { background: rgba($red, 0.15);  color: $red; border: 1px solid rgba($red, 0.3); }
+    &--rise    { background: rgba($green, 0.15); color: $green; border: 1px solid rgba($green, 0.3); }
+    &--fall    { background: rgba($red, 0.15);  color: $red; border: 1px solid rgba($red, 0.3); }
+    &--latest  { transform: scale(1.2); box-shadow: 0 0 10px rgba($gold, 0.6); border-color: $gold; }
 }
 
 .bt-trail__price {
     font-family: 'Roboto Mono', monospace;
-    font-size:   1.1rem;
-    font-weight: 600;
-    padding:     0.15rem 0.5rem;
+    font-size:   0.9rem;
+    font-weight: 700;
+    padding:     0.2rem 0.5rem;
     border-radius: 0.4rem;
-
     &--rise { color: $green; background: rgba($green, 0.08); }
-    &--fall { color: $red;   background: rgba($red,   0.08); }
+    &--fall { color: $red;   background: rgba($red, 0.08); }
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
-@keyframes bt-spin {
-    to { transform: rotate(360deg); }
-}
-
-@keyframes bt-fade-up {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes bt-pop {
-    0%   { transform: scale(0.85); }
-    50%  { transform: scale(1.15); }
-    100% { transform: scale(1);    }
-}
+@keyframes bt-spin { to { transform: rotate(360deg); } }
+@keyframes bt-fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bt-pop { 0% { transform: scale(0.9); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+@keyframes bt-flash { 0% { filter: brightness(1.5); transform: scale(1.05); } 100% { filter: brightness(1); transform: scale(1); } }
+@keyframes bt-bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-4px); } }
