@@ -1,104 +1,135 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { v4 as uuidv4 } from 'uuid';
-import { 
-    LabelPairedChartMixedCaptionBoldIcon, 
+import {
+    LabelPairedChartMixedCaptionBoldIcon,
     LabelPairedMemoPadCaptionBoldIcon,
     LabelPairedCirclePlusCaptionRegularIcon,
     LabelPairedTrashCaptionRegularIcon,
     LabelPairedPenCaptionRegularIcon,
     LabelPairedCircleCheckCaptionRegularIcon,
-    LabelPairedCircleExclamationCaptionRegularIcon
+    LabelPairedCircleExclamationCaptionRegularIcon,
 } from '@deriv/quill-icons/LabelPaired';
 import { Button, Text, useDevice } from '@deriv-com/ui';
 import InputField from '@/components/shared_ui/input-field';
 import { Localize, localize } from '@deriv-com/translations';
-import ThemedScrollbars from '@/components/shared_ui/themed-scrollbars';
 import './risk-calculator.scss';
 
+// ── Types ──────────────────────────────────────────────────────────────────────
 type TJournalEntry = {
     id: string;
     title: string;
     description: string;
     type: 'Journal' | 'Plan';
     createdAt: string;
+    calcSnapshot?: string; // serialized calculator result
 };
 
+const MIN_STAKE = 0.35; // Deriv minimum stake
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 const RiskCalculator = observer(() => {
     const { isDesktop } = useDevice();
-    
-    // Calculator State
-    const [balance, setBalance] = useState<string>('1000');
-    const [riskPercent, setRiskPercent] = useState<string>('1');
-    const [payoutPercent, setPayoutPercent] = useState<string>('95');
 
-    // Journal State
-    const [entries, setEntries] = useState<TJournalEntry[]>([]);
-    const [isFormOpen, setIsFormOpen] = useState(false);
+    // ── Calculator state ───────────────────────────────────────────────────────
+    const [balance,      setBalance]      = useState<string>('1000');
+    const [target,       setTarget]       = useState<string>('1200');
+    const [payoutPct,    setPayoutPct]    = useState<string>('95');
+    const [stake,        setStake]        = useState<string>('0.35');
+    const [sessionRuns,  setSessionRuns]  = useState<string>('3');
+
+    // ── Journal state ──────────────────────────────────────────────────────────
+    const [entries,      setEntries]      = useState<TJournalEntry[]>([]);
+    const [isFormOpen,   setIsFormOpen]   = useState(false);
     const [editingEntry, setEditingEntry] = useState<TJournalEntry | null>(null);
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [entryType, setEntryType] = useState<'Journal' | 'Plan'>('Journal');
+    const [title,        setTitle]        = useState('');
+    const [description,  setDescription]  = useState('');
+    const [entryType,    setEntryType]    = useState<'Journal' | 'Plan'>('Journal');
+    const [active_view,  setActiveView]   = useState<'calculator' | 'journal'>('calculator');
 
-    const [active_view, setActiveView] = useState<'calculator' | 'journal'>('calculator');
-
-    // Load initial data
+    // ── Persist journal ────────────────────────────────────────────────────────
     useEffect(() => {
         const saved = localStorage.getItem('mesoflix_trading_journal');
         if (saved) {
-            try {
-                setEntries(JSON.parse(saved));
-            } catch (e) {
-                console.error('Failed to load journal', e);
-            }
+            try { setEntries(JSON.parse(saved)); } catch (_) { /* noop */ }
         }
     }, []);
 
-    // Save data when entries change
     useEffect(() => {
         localStorage.setItem('mesoflix_trading_journal', JSON.stringify(entries));
     }, [entries]);
 
-    // Calculations
-    const calculations = useMemo(() => {
-        const b = parseFloat(balance) || 0;
-        const r = parseFloat(riskPercent) || 0;
-        const p = parseFloat(payoutPercent) || 0;
+    // ── AI Engine calculations ─────────────────────────────────────────────────
+    const calc = useMemo(() => {
+        const b   = parseFloat(balance)   || 0;
+        const tgt = parseFloat(target)    || 0;
+        const pp  = parseFloat(payoutPct) || 95;
+        const stk = Math.max(MIN_STAKE, parseFloat(stake) || MIN_STAKE);
+        const runs = Math.max(1, parseInt(sessionRuns, 10) || 3);
 
-        const riskAmount = b * (r / 100);
-        const stake = riskAmount; // In options, your stake is your risk
-        const profit = stake * (p / 100);
+        const profitNeeded   = Math.max(0, tgt - b);
+        const profitPerTrade = stk * (pp / 100);            // profit on each winning trade
+        const tradesNeeded   = profitPerTrade > 0
+            ? Math.ceil(profitNeeded / profitPerTrade)
+            : 0;
+        const tradesPerRun   = Math.ceil(tradesNeeded / runs);
+        const roiPercent     = b > 0 ? ((tgt - b) / b) * 100 : 0;
+        const winRateNeeded  = tradesNeeded > 0
+            ? (tradesNeeded / (tradesNeeded * 1.2)) * 100  // assumes ~20% loss buffer
+            : 0;
+        const maxDrawdownRisk = stk * tradesPerRun;         // worst-case loss per run
+        const totalPayout     = stk + profitPerTrade;
+
+        // Daily projection — simple linear at `runs` per day
+        const daysNeeded = runs > 0 ? Math.ceil(tradesNeeded / (tradesPerRun * runs)) : 0;
 
         return {
-            riskAmount: riskAmount.toFixed(2),
-            recommendedStake: stake.toFixed(2),
-            potentialProfit: profit.toFixed(2),
-            totalPayout: (stake + profit).toFixed(2),
+            stk:             stk.toFixed(2),
+            profitPerTrade:  profitPerTrade.toFixed(3),
+            totalPayout:     totalPayout.toFixed(3),
+            profitNeeded:    profitNeeded.toFixed(2),
+            tradesNeeded,
+            tradesPerRun,
+            roiPercent:      roiPercent.toFixed(1),
+            winRateNeeded:   winRateNeeded.toFixed(1),
+            maxDrawdownRisk: maxDrawdownRisk.toFixed(2),
+            daysNeeded,
+            isViable:        stk >= MIN_STAKE && profitNeeded >= 0 && b > 0,
         };
-    }, [balance, riskPercent, payoutPercent]);
+    }, [balance, target, payoutPct, stake, sessionRuns]);
 
-    // Journal Handlers
+    // ── "Save to Journal" pre-fill with calculation snapshot ──────────────────
+    const handleSaveCalcToJournal = useCallback(() => {
+        const snap = [
+            `Balance: $${balance}  →  Target: $${target}`,
+            `Stake: $${calc.stk}  |  Payout: ${payoutPct}%  |  Profit/trade: $${calc.profitPerTrade}`,
+            `Trades needed: ${calc.tradesNeeded}  |  Trades/run: ${calc.tradesPerRun}  |  Runs/session: ${sessionRuns}`,
+            `ROI needed: ${calc.roiPercent}%  |  Est. days: ${calc.daysNeeded}`,
+            `Max drawdown per run: $${calc.maxDrawdownRisk}`,
+        ].join('\n');
+        setTitle(`Target Plan — $${balance} → $${target}`);
+        setDescription(snap);
+        setEntryType('Plan');
+        setIsFormOpen(true);
+        setActiveView('journal');
+    }, [balance, target, payoutPct, stake, sessionRuns, calc]);
+
+    // ── Journal CRUD ───────────────────────────────────────────────────────────
     const handleSaveEntry = () => {
         if (!title.trim() || !description.trim()) return;
-
         if (editingEntry) {
-            setEntries(prev => prev.map(e => e.id === editingEntry.id ? { ...e, title, description, type: entryType } : e));
+            setEntries(prev => prev.map(e =>
+                e.id === editingEntry.id ? { ...e, title, description, type: entryType } : e
+            ));
             setEditingEntry(null);
         } else {
-            const newEntry: TJournalEntry = {
-                id: uuidv4(),
-                title,
-                description,
-                type: entryType,
+            setEntries(prev => [{
+                id: uuidv4(), title, description, type: entryType,
                 createdAt: new Date().toISOString(),
-            };
-            setEntries(prev => [newEntry, ...prev]);
+            }, ...prev]);
         }
-
-        setTitle('');
-        setDescription('');
-        setIsFormOpen(false);
+        setTitle(''); setDescription(''); setIsFormOpen(false);
     };
 
     const handleDeleteEntry = (id: string, e: React.MouseEvent) => {
@@ -115,160 +146,188 @@ const RiskCalculator = observer(() => {
         if (!isDesktop) setActiveView('journal');
     };
 
-    const renderContent = () => (
-        <div className={classNames('risk-calculator-page__content', { 
-            'risk-calculator-page__content--mobile-toggle': !isDesktop 
-        })}>
-            {/* Left: Calculator */}
-            {(isDesktop || active_view === 'calculator') && (
-                <div className='card'>
-                    <div className='card__title'>
-                        <LabelPairedChartMixedCaptionBoldIcon width='24px' height='24px' fill='var(--brand-red-coral)' />
-                        <Localize i18n_default_text='Stake Calculator' />
-                    </div>
-                    
-                    <div className='calculator-form'>
-                        <InputField
-                            label={localize('Account Balance ($)')}
-                            value={balance}
-                            onChange={(e: any) => setBalance(e.target.value)}
-                            type='number'
-                        />
-                        <div className='calculator-form__row'>
-                            <InputField
-                                label={localize('Risk (%)')}
-                                value={riskPercent}
-                                onChange={(e: any) => setRiskPercent(e.target.value)}
-                                type='number'
-                            />
-                            <InputField
-                                label={localize('Market Payout (%)')}
-                                value={payoutPercent}
-                                onChange={(e: any) => setPayoutPercent(e.target.value)}
-                                type='number'
-                            />
-                        </div>
+    // ── Render ─────────────────────────────────────────────────────────────────
+    const renderCalculator = () => (
+        <div className='rc-card'>
+            <div className='rc-card__title'>
+                <LabelPairedChartMixedCaptionBoldIcon width='22px' height='22px' fill='var(--brand-red-coral)' />
+                AI Trading Calculator
+            </div>
 
-                        <div className='calculator-form__results'>
-                            <div className='calculator-form__result-item'>
-                                <Text size='sm'><Localize i18n_default_text='Risk Amount' /></Text>
-                                <Text weight='bold'>${calculations.riskAmount}</Text>
-                            </div>
-                            <div className='calculator-form__result-item calculator-form__result-item--highlight'>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <Text size='md' weight='bold' color='prominent'><Localize i18n_default_text='Recommended Stake' /></Text>
-                                    <Text size='2xs' color='less-prominent'><Localize i18n_default_text='Based on your risk %' /></Text>
-                                </div>
-                                <Text size='lg' weight='bold' color='success'>${calculations.recommendedStake}</Text>
-                            </div>
-                            <div className='calculator-form__result-item'>
-                                <Text size='sm'><Localize i18n_default_text='Potential Profit' /></Text>
-                                <Text color='success'>+${calculations.potentialProfit}</Text>
-                            </div>
-                            <div className='calculator-form__result-item'>
-                                <Text size='sm'><Localize i18n_default_text='Total Payout' /></Text>
-                                <Text weight='bold'>${calculations.totalPayout}</Text>
-                            </div>
+            <div className='rc-form'>
+                {/* Row 1 */}
+                <div className='rc-form__row'>
+                    <div className='rc-form__field'>
+                        <label>Account Balance ($)</label>
+                        <input type='number' min='0' value={balance} onChange={e => setBalance(e.target.value)} />
+                    </div>
+                    <div className='rc-form__field'>
+                        <label>Target Amount ($)</label>
+                        <input type='number' min='0' value={target}  onChange={e => setTarget(e.target.value)} />
+                    </div>
+                </div>
+
+                {/* Row 2 */}
+                <div className='rc-form__row'>
+                    <div className='rc-form__field'>
+                        <label>Stake per Trade ($)</label>
+                        <input
+                            type='number' min={MIN_STAKE} step='0.01'
+                            value={stake}
+                            onChange={e => setStake(e.target.value)}
+                        />
+                        <span className='rc-form__hint'>Min: ${MIN_STAKE} (Deriv default)</span>
+                    </div>
+                    <div className='rc-form__field'>
+                        <label>Payout per Trade (%)</label>
+                        <input type='number' min='1' max='200' value={payoutPct} onChange={e => setPayoutPct(e.target.value)} />
+                    </div>
+                </div>
+
+                {/* Row 3 */}
+                <div className='rc-form__row rc-form__row--single'>
+                    <div className='rc-form__field'>
+                        <label>Runs per Session</label>
+                        <input type='number' min='1' max='100' value={sessionRuns} onChange={e => setSessionRuns(e.target.value)} />
+                        <span className='rc-form__hint'>How many rounds you plan per session</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* AI Results Panel */}
+            {calc.isViable ? (
+                <div className='rc-results'>
+                    <div className='rc-results__header'>
+                        <span className='rc-results__badge'>AI Analysis</span>
+                        <span className='rc-results__roi'>ROI needed: <strong>{calc.roiPercent}%</strong></span>
+                    </div>
+
+                    <div className='rc-results__grid'>
+                        <div className='rc-stat rc-stat--primary'>
+                            <div className='rc-stat__value'>{calc.tradesNeeded}</div>
+                            <div className='rc-stat__label'>Total Trades Needed</div>
+                        </div>
+                        <div className='rc-stat rc-stat--accent'>
+                            <div className='rc-stat__value'>{calc.tradesPerRun}</div>
+                            <div className='rc-stat__label'>Trades per Run</div>
+                        </div>
+                        <div className='rc-stat'>
+                            <div className='rc-stat__value'>${calc.profitPerTrade}</div>
+                            <div className='rc-stat__label'>Profit per Win</div>
+                        </div>
+                        <div className='rc-stat'>
+                            <div className='rc-stat__value'>${calc.profitNeeded}</div>
+                            <div className='rc-stat__label'>Total Profit Needed</div>
+                        </div>
+                        <div className='rc-stat rc-stat--danger'>
+                            <div className='rc-stat__value'>${calc.maxDrawdownRisk}</div>
+                            <div className='rc-stat__label'>Max Risk / Run</div>
+                        </div>
+                        <div className='rc-stat'>
+                            <div className='rc-stat__value'>{calc.daysNeeded}d</div>
+                            <div className='rc-stat__label'>Est. Days at {sessionRuns} runs/day</div>
                         </div>
                     </div>
+
+                    <div className='rc-results__summary'>
+                        <p>
+                            With a <strong>${calc.stk}</strong> stake at <strong>{payoutPct}%</strong> payout,
+                            each win nets <strong>${calc.profitPerTrade}</strong>. You need
+                            <strong> {calc.tradesNeeded} wins</strong> to reach your
+                            target, split into <strong>{calc.tradesPerRun} trades per run</strong> across
+                            <strong> {sessionRuns} runs per session</strong>.
+                        </p>
+                    </div>
+
+                    <button className='rc-save-btn' onClick={handleSaveCalcToJournal}>
+                        📓 Save to Journal as Trading Plan
+                    </button>
+                </div>
+            ) : (
+                <div className='rc-results rc-results--invalid'>
+                    <p>⚠ Enter valid balance, target, and a stake ≥ ${MIN_STAKE} to see your AI analysis.</p>
+                </div>
+            )}
+        </div>
+    );
+
+    const renderJournal = () => (
+        <div className='rc-card rc-card--journal'>
+            <div className='rc-card__title-row'>
+                <div className='rc-card__title'>
+                    <LabelPairedMemoPadCaptionBoldIcon width='22px' height='22px' fill='var(--brand-blue)' />
+                    Trading Journal
+                </div>
+                <button className='rc-add-btn' onClick={() => { setIsFormOpen(!isFormOpen); if (isFormOpen) setEditingEntry(null); }}>
+                    {isFormOpen ? '✕ Cancel' : '+ New Entry'}
+                </button>
+            </div>
+
+            {/* Journal Form */}
+            {isFormOpen && (
+                <div className='rc-journal-form'>
+                    <div className='rc-form__field'>
+                        <label>Title / Trading Pair</label>
+                        <input type='text' value={title} onChange={e => setTitle(e.target.value)} placeholder='e.g. Target Plan — R_50' />
+                    </div>
+                    <div className='rc-journal-form__types'>
+                        {(['Journal', 'Plan'] as const).map(t => (
+                            <label key={t} className={classNames('rc-type-btn', { 'rc-type-btn--active': entryType === t })}>
+                                <input type='radio' name='entry-type' checked={entryType === t} onChange={() => setEntryType(t)} />
+                                {t === 'Journal' ? '📒 Journal' : '📋 Trading Plan'}
+                            </label>
+                        ))}
+                    </div>
+                    <div className='rc-form__field'>
+                        <label>Notes / Strategy</label>
+                        <textarea
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder='Write your strategy, results, or what happened in the trade...'
+                            rows={5}
+                        />
+                    </div>
+                    <button
+                        className='rc-save-btn'
+                        onClick={handleSaveEntry}
+                        disabled={!title.trim() || !description.trim()}
+                    >
+                        {editingEntry ? '✏️ Update Entry' : '💾 Save Entry'}
+                    </button>
                 </div>
             )}
 
-            {/* Right: Journal */}
-            {(isDesktop || active_view === 'journal') && (
-                <div className='card journal-section'>
-                    <div className='journal-section__header'>
-                        <div className='card__title'>
-                            <LabelPairedMemoPadCaptionBoldIcon width='24px' height='24px' fill='var(--brand-blue)' />
-                            <Localize i18n_default_text='Trading Journal' />
-                        </div>
-                        <Button 
-                            color='primary' 
-                            onClick={() => setIsFormOpen(!isFormOpen)}
-                        >
-                            {isFormOpen ? localize('Cancel') : (
-                                <>
-                                    <LabelPairedCirclePlusCaptionRegularIcon width='16px' height='16px' fill='white' />
-                                    <span style={{ marginLeft: '8px' }}>{localize('New Entry')}</span>
-                                </>
-                            )}
-                        </Button>
-                    </div>
-
-                    {isFormOpen ? (
-                        <div className='journal-form'>
-                            <InputField
-                                label={localize('Title / Trading Pair')}
-                                value={title}
-                                onChange={(e: any) => setTitle(e.target.value)}
-                            />
-                            <div style={{ display: 'flex', gap: '16px', margin: '8px 0' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                    <input 
-                                        type='radio' 
-                                        name='type' 
-                                        checked={entryType === 'Journal'} 
-                                        onChange={() => setEntryType('Journal')} 
-                                    />
-                                    <Localize i18n_default_text='Journal' />
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                    <input 
-                                        type='radio' 
-                                        name='type' 
-                                        checked={entryType === 'Plan'} 
-                                        onChange={() => setEntryType('Plan')} 
-                                    />
-                                    <Localize i18n_default_text='Trading Plan' />
-                                </label>
-                            </div>
-                            <textarea
-                                placeholder={localize('Write your strategy, rules, or what happened in the trade...')}
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                            />
-                            <Button color='primary' onClick={handleSaveEntry} disabled={!title || !description}>
-                                <Localize i18n_default_text='Save Entry' />
-                            </Button>
+            {/* Journal List */}
+            {!isFormOpen && (
+                <div className='rc-journal-list'>
+                    {entries.length === 0 ? (
+                        <div className='rc-journal-empty'>
+                            <LabelPairedCircleExclamationCaptionRegularIcon width='40px' height='40px' />
+                            <strong>Your journal is empty</strong>
+                            <span>Save a calculation above or add an entry manually.</span>
                         </div>
                     ) : (
-                        <div className='journal-section__list'>
-                            {entries.length === 0 ? (
-                                <div className='journal-section__empty'>
-                                    <LabelPairedCircleExclamationCaptionRegularIcon width='48px' height='48px' />
-                                    <Text weight='bold'><Localize i18n_default_text='Your journal is empty' /></Text>
-                                    <Text size='sm'><Localize i18n_default_text='Start tracking your trades and plans today.' /></Text>
+                        entries.map(entry => (
+                            <div key={entry.id} className='rc-journal-item' onClick={() => handleEditEntry(entry)}>
+                                <div className='rc-journal-item__header'>
+                                    <h3>{entry.title}</h3>
+                                    <time>{new Date(entry.createdAt).toLocaleDateString()}</time>
                                 </div>
-                            ) : (
-                                entries.map(entry => (
-                                    <div key={entry.id} className='journal-section__item' onClick={() => handleEditEntry(entry)}>
-                                        <header>
-                                            <h3>{entry.title}</h3>
-                                            <time>{new Date(entry.createdAt).toLocaleDateString()}</time>
-                                        </header>
-                                        <p>{entry.description.length > 200 ? entry.description.substring(0, 200) + '...' : entry.description}</p>
-                                        <footer>
-                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                {entry.type === 'Plan' ? 
-                                                    <LabelPairedCircleCheckCaptionRegularIcon width='16px' height='16px' fill='var(--brand-blue)' /> :
-                                                    <LabelPairedMemoPadCaptionBoldIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
-                                                }
-                                                <Text size='xs' color='less-prominent'>{entry.type}</Text>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '12px' }}>
-                                                <LabelPairedPenCaptionRegularIcon width='16px' height='16px' fill='var(--text-less-prominent)' />
-                                                <LabelPairedTrashCaptionRegularIcon 
-                                                    width='16px' 
-                                                    height='16px' 
-                                                    fill='var(--status-danger)' 
-                                                    onClick={(e) => handleDeleteEntry(entry.id, e)}
-                                                />
-                                            </div>
-                                        </footer>
+                                <p>{entry.description.length > 180 ? entry.description.substring(0, 180) + '…' : entry.description}</p>
+                                <div className='rc-journal-item__footer'>
+                                    <span className={classNames('rc-tag', { 'rc-tag--plan': entry.type === 'Plan' })}>
+                                        {entry.type === 'Plan' ? '📋 Plan' : '📒 Journal'}
+                                    </span>
+                                    <div className='rc-journal-item__actions'>
+                                        <LabelPairedPenCaptionRegularIcon width='15px' height='15px' fill='var(--text-less-prominent)' />
+                                        <LabelPairedTrashCaptionRegularIcon
+                                            width='15px' height='15px' fill='var(--status-danger)'
+                                            onClick={(e: React.MouseEvent) => handleDeleteEntry(entry.id, e)}
+                                        />
                                     </div>
-                                ))
-                            )}
-                        </div>
+                                </div>
+                            </div>
+                        ))
                     )}
                 </div>
             )}
@@ -277,19 +336,20 @@ const RiskCalculator = observer(() => {
 
     return (
         <div className='risk-calculator-page'>
+            {/* Header */}
             <div className='risk-calculator-page__header'>
                 <div className='risk-calculator-page__header-title'>
-                    <Text as='h1'><Localize i18n_default_text='Deriv Risk Tools' /></Text>
+                    <Text as='h1'>Deriv Risk Tools</Text>
                     {!isDesktop && (
                         <div className='risk-calculator-page__toggle'>
-                            <button 
+                            <button
                                 className={classNames('toggle-btn', { 'toggle-btn--active': active_view === 'calculator' })}
                                 onClick={() => setActiveView('calculator')}
                             >
                                 <LabelPairedChartMixedCaptionBoldIcon width='16px' height='16px' fill={active_view === 'calculator' ? 'white' : 'var(--text-general)'} />
                                 <span>{localize('Calculator')}</span>
                             </button>
-                            <button 
+                            <button
                                 className={classNames('toggle-btn', { 'toggle-btn--active': active_view === 'journal' })}
                                 onClick={() => setActiveView('journal')}
                             >
@@ -300,19 +360,19 @@ const RiskCalculator = observer(() => {
                     )}
                 </div>
                 <Text color='less-prominent'>
-                    <Localize i18n_default_text='Calculate per-trade stake and track your bot journey.' />
+                    AI-powered trade planner — enter your balance, target &amp; stake to get your session plan.
                 </Text>
             </div>
 
-            {isDesktop ? (
-                <div className='risk-calculator-page__scroll-container'>
-                    <ThemedScrollbars autoHide>
-                        {renderContent()}
-                    </ThemedScrollbars>
+            {/* Scrollable content area */}
+            <div className='risk-calculator-page__scroll-container'>
+                <div className={classNames('risk-calculator-page__content', {
+                    'risk-calculator-page__content--mobile-toggle': !isDesktop,
+                })}>
+                    {(isDesktop || active_view === 'calculator') && renderCalculator()}
+                    {(isDesktop || active_view === 'journal')    && renderJournal()}
                 </div>
-            ) : (
-                renderContent()
-            )}
+            </div>
         </div>
     );
 });

@@ -293,7 +293,7 @@ const AppWrapper = observer(() => {
 
         // Prevent scrolling when specific tabs are active (only on mobile)
         const mainElement = document.querySelector('.main__container');
-        const scrollLockedTabs = [DBOT_TABS.TUTORIAL, DBOT_TABS.RISK_CALCULATOR];
+        const scrollLockedTabs = [DBOT_TABS.TUTORIAL];
         
         if (scrollLockedTabs.includes(active_tab) && !isDesktop) {
             document.body.style.overflow = 'hidden';
