@@ -7,7 +7,7 @@
 .dcircles-page {
   width: 100%;
   min-height: 100%;
-  padding: 2rem 2rem 4rem;
+  padding: 2rem 2rem 6rem;  // extra bottom pad so last panel is never cut
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -15,10 +15,13 @@
   gap: 1.6rem;
   background: var(--general-main-1);
   color: var(--text-prominent);
+  overflow-y: auto;   // page itself scrolls
+  overflow-x: hidden;
 
   > * {
     width: 100%;
     max-width: 1080px;
+    flex-shrink: 0;   // prevent children from being squashed
   }
 
   /* ─────────────────── HEADER ─────────────────── */
@@ -349,6 +352,15 @@
       display: flex;
       flex-wrap: wrap;
       gap: 0.3rem;
+      max-height: 120px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 0.2rem;
+
+      /* Custom scrollbar */
+      &::-webkit-scrollbar        { width: 4px; }
+      &::-webkit-scrollbar-track  { background: transparent; }
+      &::-webkit-scrollbar-thumb  { background: var(--general-section-1); border-radius: 4px; }
     }
   }
 
