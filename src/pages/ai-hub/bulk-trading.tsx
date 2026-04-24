@@ -4,7 +4,6 @@ import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import './bulk-trading.scss';
 
 // ── Constants (Synced with DCircles) ──────────────────────────────────────────
-const MIN_STAKE   = 0.35;
 const RING_R       = 38;
 const RING_C       = 2 * Math.PI * RING_R;
 const RING_MAX_PCT = 16;
@@ -203,7 +202,7 @@ const BulkTradingPage: React.FC = () => {
                 setLoading(false);
             };
 
-            ws.onclose = (e) => {
+            ws.onclose = () => {
                 setStatus('connecting');
                 setLoading(false);
                 subIdRef.current = null;
