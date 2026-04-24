@@ -320,7 +320,6 @@ const BulkTradingPage: React.FC = observer(() => {
 
         const currentStake = parseFloat(stake) || 0.35;
         const currentSymbol = symbolRef.current;
-        const currentAccount = authData$.value?.loginid;
 
         try {
             console.log(`[BulkTrade] Starting ${side.toUpperCase()} execution for ${bulkCount} positions...`);
