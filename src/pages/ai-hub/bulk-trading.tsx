@@ -76,6 +76,13 @@ function useAuthWS() {
     return { wsRef, wsUrl, status, setStatus };
 }
 
+interface IPopupData {
+    id: string;
+    title: string;
+    value: string;
+    extra?: string;
+}
+
 const BulkTradingPage: React.FC = () => {
     const [tradeType,   setTradeType]   = useState<TTradeType>(() => (localStorage.getItem('bulk_trade_type') as TTradeType) ?? 'over_under');
     const [symbol,      setSymbol]      = useState<string>(() => localStorage.getItem('bulk_symbol') ?? '1HZ10V');
@@ -88,7 +95,7 @@ const BulkTradingPage: React.FC = () => {
     const [lastDigit,  setLastDigit]  = useState<number | null>(null);
     const [loading,    setLoading]    = useState(true);
 
-    const [popup, setPopup] = useState<{ id: string; content: string; timeout?: any } | null>(null);
+    const [popup, setPopup] = useState<{ data: IPopupData; timeout?: any } | null>(null);
 
     const symbolRef    = useRef(symbol);
     const tickCountRef = useRef(tickCount);
@@ -254,10 +261,10 @@ const BulkTradingPage: React.FC = () => {
         subscribe(symbolRef.current);
     }, [tickInput, subscribe]);
 
-    const triggerPopup = (id: string, content: string) => {
+    const triggerPopup = (data: IPopupData) => {
         setPopup(prev => {
             if (prev?.timeout) clearTimeout(prev.timeout);
-            return { id, content, timeout: setTimeout(() => setPopup(null), 5000) };
+            return { data, timeout: setTimeout(() => setPopup(null), 5000) };
         });
     };
 
@@ -296,6 +303,17 @@ const BulkTradingPage: React.FC = () => {
     const pip = pipRef.current[symbol] ?? 2;
     const tradeTypeInfo = TRADE_TYPES.find(t => t.id === tradeType)!;
 
+    const renderPopupUI = (id: string) => {
+        if (!popup || popup.data.id !== id) return null;
+        return (
+            <div className='bt-mini-popup'>
+                <div className='bt-mini-popup__title'>{popup.data.title}</div>
+                <div className='bt-mini-popup__value'>{popup.data.value}</div>
+                {popup.data.extra && <div className='bt-mini-popup__extra'>{popup.data.extra}</div>}
+            </div>
+        );
+    };
+
     // ── DIGIT ANALYSIS ───────────────────────────────────────────────────────
     const renderDigitAnalysis = () => (
         <div className='bt-analysis bt-analysis--digits'>
@@ -323,7 +341,12 @@ const BulkTradingPage: React.FC = () => {
                                 isLowest  ? 'bt-dc-card--lowest'  : '',
                                 isFlash   ? 'bt-dc-card--flash'   : '',
                             ].join(' ')}
-                            onClick={() => triggerPopup(`digit-${d}`, `Digit ${d}: ${freq} appearances (${pct.toFixed(2)}%)`)}
+                            onClick={() => triggerPopup({ 
+                                id: `digit-${d}`, 
+                                title: `Digit ${d}`, 
+                                value: `${pct.toFixed(2)}%`, 
+                                extra: `${freq} counts` 
+                            })}
                         >
                             {isFlash && <div className='bt-dc-card__cursor'>▼</div>}
                             <div className='bt-dc-card__ring'>
@@ -339,7 +362,7 @@ const BulkTradingPage: React.FC = () => {
                                 <div className='bt-dc-card__num'>{d}</div>
                             </div>
                             <div className='bt-dc-card__pct-pill'>{pct.toFixed(2)}%</div>
-                            {popup?.id === `digit-${d}` && <div className='bt-mini-popup'>{popup.content}</div>}
+                            {renderPopupUI(`digit-${d}`)}
                         </div>
                     );
                 })}
@@ -348,18 +371,27 @@ const BulkTradingPage: React.FC = () => {
             <div className='bt-trail'>
                 <div className='bt-trail__label'>Most Recent Digits (Newest First)</div>
                 <div className='bt-trail__row'>
-                    {[...digitsWindow].reverse().slice(0, 50).map((d, i) => (
-                        <span
-                            key={i}
-                            className={`bt-trail__pill ${
-                                d >= 5 ? 'bt-trail__pill--high' : 'bt-trail__pill--low'
-                            } ${i === 0 ? 'bt-trail__pill--latest' : ''}`}
-                            onClick={() => triggerPopup(`trail-${i}`, `Digit: ${d} (${d >= 5 ? 'Over' : 'Under'})`)}
-                        >
-                            {d}
-                            {popup?.id === `trail-${i}` && <div className='bt-mini-popup'>{popup.content}</div>}
-                        </span>
-                    ))}
+                    {[...digitsWindow].reverse().slice(0, 50).map((d, i) => {
+                         const realIdx = digitsWindow.length - 1 - i;
+                         const p = priceWindow[realIdx];
+                         return (
+                            <span
+                                key={i}
+                                className={`bt-trail__pill ${
+                                    d >= 5 ? 'bt-trail__pill--high' : 'bt-trail__pill--low'
+                                } ${i === 0 ? 'bt-trail__pill--latest' : ''}`}
+                                onClick={() => triggerPopup({
+                                    id: `trail-${i}`,
+                                    title: `Digit ${d}`,
+                                    value: `Price: ${p?.toFixed(pip) ?? '—'}`,
+                                    extra: d >= 5 ? 'Prediction: Over' : 'Prediction: Under'
+                                })}
+                            >
+                                {d}
+                                {renderPopupUI(`trail-${i}`)}
+                            </span>
+                         );
+                    })}
                 </div>
             </div>
         </div>
@@ -374,7 +406,12 @@ const BulkTradingPage: React.FC = () => {
             </div>
 
             <div className='bt-eo-bars'>
-                <div className='bt-eo-bar-row' onClick={() => triggerPopup('even', `Even: ${stats?.evenCount} counts (${(stats?.evenPct ?? 0).toFixed(2)}%)`)}>
+                <div className='bt-eo-bar-row' onClick={() => triggerPopup({ 
+                    id: 'even', 
+                    title: 'Even Distribution', 
+                    value: `${(stats?.evenPct ?? 0).toFixed(2)}%`, 
+                    extra: `${stats?.evenCount} ticks total` 
+                })}>
                     <span className='bt-eo-bar-row__label'>Even</span>
                     <div className='bt-eo-bar-row__track'>
                         <div
@@ -383,9 +420,14 @@ const BulkTradingPage: React.FC = () => {
                         />
                     </div>
                     <span className='bt-eo-bar-row__pct'>{(stats?.evenPct ?? 0).toFixed(1)}%</span>
-                    {popup?.id === 'even' && <div className='bt-mini-popup'>{popup.content}</div>}
+                    {renderPopupUI('even')}
                 </div>
-                <div className='bt-eo-bar-row' onClick={() => triggerPopup('odd', `Odd: ${stats?.oddCount} counts (${(stats?.oddPct ?? 0).toFixed(2)}%)`)}>
+                <div className='bt-eo-bar-row' onClick={() => triggerPopup({ 
+                    id: 'odd', 
+                    title: 'Odd Distribution', 
+                    value: `${(stats?.oddPct ?? 0).toFixed(2)}%`, 
+                    extra: `${stats?.oddCount} ticks total` 
+                })}>
                     <span className='bt-eo-bar-row__label'>Odd</span>
                     <div className='bt-eo-bar-row__track'>
                         <div
@@ -394,7 +436,7 @@ const BulkTradingPage: React.FC = () => {
                         />
                     </div>
                     <span className='bt-eo-bar-row__pct'>{(stats?.oddPct ?? 0).toFixed(1)}%</span>
-                    {popup?.id === 'odd' && <div className='bt-mini-popup'>{popup.content}</div>}
+                    {renderPopupUI('odd')}
                 </div>
             </div>
 
@@ -420,16 +462,25 @@ const BulkTradingPage: React.FC = () => {
             <div className='bt-trail'>
                 <div className='bt-trail__label'>Pattern Streak (Newest First)</div>
                 <div className='bt-trail__row'>
-                    {[...digitsWindow].reverse().slice(0, 50).map((d, i) => (
-                        <span
-                            key={i}
-                            className={`bt-trail__pill ${d % 2 === 0 ? 'bt-trail__pill--even' : 'bt-trail__pill--odd'} ${i === 0 ? 'bt-trail__pill--latest' : ''}`}
-                            onClick={() => triggerPopup(`eo-trail-${i}`, `Digit: ${d} (${d % 2 === 0 ? 'Even' : 'Odd'})`)}
-                        >
-                            {d % 2 === 0 ? 'E' : 'O'}
-                            {popup?.id === `eo-trail-${i}` && <div className='bt-mini-popup'>{popup.content}</div>}
-                        </span>
-                    ))}
+                    {[...digitsWindow].reverse().slice(0, 50).map((d, i) => {
+                        const realIdx = digitsWindow.length - 1 - i;
+                        const p = priceWindow[realIdx];
+                        return (
+                            <span
+                                key={i}
+                                className={`bt-trail__pill ${d % 2 === 0 ? 'bt-trail__pill--even' : 'bt-trail__pill--odd'} ${i === 0 ? 'bt-trail__pill--latest' : ''}`}
+                                onClick={() => triggerPopup({
+                                    id: `eo-trail-${i}`,
+                                    title: d % 2 === 0 ? 'Even Digit' : 'Odd Digit',
+                                    value: `Price: ${p?.toFixed(pip) ?? '—'}`,
+                                    extra: `Digit Value: ${d}`
+                                })}
+                            >
+                                {d % 2 === 0 ? 'E' : 'O'}
+                                {renderPopupUI(`eo-trail-${i}`)}
+                            </span>
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -444,7 +495,12 @@ const BulkTradingPage: React.FC = () => {
             </div>
 
             <div className='bt-eo-bars'>
-                <div className='bt-eo-bar-row' onClick={() => triggerPopup('rise', `Rise: ${stats?.rises} occurrences (${(stats?.risePct ?? 0).toFixed(2)}%)`)}>
+                <div className='bt-eo-bar-row' onClick={() => triggerPopup({ 
+                    id: 'rise', 
+                    title: 'Market Rise', 
+                    value: `${(stats?.risePct ?? 0).toFixed(2)}%`, 
+                    extra: `${stats?.rises} momentum ticks` 
+                })}>
                     <span className='bt-eo-bar-row__label'>🔼 Rise</span>
                     <div className='bt-eo-bar-row__track'>
                         <div
@@ -453,9 +509,14 @@ const BulkTradingPage: React.FC = () => {
                         />
                     </div>
                     <span className='bt-eo-bar-row__pct'>{(stats?.risePct ?? 0).toFixed(1)}%</span>
-                    {popup?.id === 'rise' && <div className='bt-mini-popup'>{popup.content}</div>}
+                    {renderPopupUI('rise')}
                 </div>
-                <div className='bt-eo-bar-row' onClick={() => triggerPopup('fall', `Fall: ${stats?.falls} occurrences (${(stats?.fallPct ?? 0).toFixed(2)}%)`)}>
+                <div className='bt-eo-bar-row' onClick={() => triggerPopup({ 
+                    id: 'fall', 
+                    title: 'Market Fall', 
+                    value: `${(stats?.fallPct ?? 0).toFixed(2)}%`, 
+                    extra: `${stats?.falls} momentum ticks` 
+                })}>
                     <span className='bt-eo-bar-row__label'>🔽 Fall</span>
                     <div className='bt-eo-bar-row__track'>
                         <div
@@ -464,7 +525,7 @@ const BulkTradingPage: React.FC = () => {
                         />
                     </div>
                     <span className='bt-eo-bar-row__pct'>{(stats?.fallPct ?? 0).toFixed(1)}%</span>
-                    {popup?.id === 'fall' && <div className='bt-mini-popup'>{popup.content}</div>}
+                    {renderPopupUI('fall')}
                 </div>
             </div>
 
@@ -482,11 +543,16 @@ const BulkTradingPage: React.FC = () => {
                             <span
                                 key={i}
                                 className={`bt-trail__pill ${isRise ? 'bt-trail__pill--rise' : 'bt-trail__pill--fall'} ${i === 0 ? 'bt-trail__pill--latest' : ''}`}
-                                onClick={() => triggerPopup(`rf-${i}`, `${isRise ? 'RISE' : 'FALL'}: ${p.toFixed(pip)} (${diff > 0 ? '+' : ''}${diff.toFixed(pip)}, ${diffPct.toFixed(4)}%)`)}
+                                onClick={() => triggerPopup({
+                                    id: `rf-${i}`,
+                                    title: isRise ? '🔼 Rise Momentum' : '🔽 Fall Momentum',
+                                    value: `Price: ${p.toFixed(pip)}`,
+                                    extra: `Change: ${diff > 0 ? '+' : ''}${diff.toFixed(pip)} (${diffPct.toFixed(4)}%)`
+                                })}
                                 style={{ position: 'relative' }}
                             >
                                 {isRise ? '▲' : '▼'}
-                                {popup?.id === `rf-${i}` && <div className='bt-mini-popup'>{popup.content}</div>}
+                                {renderPopupUI(`rf-${i}`)}
                             </span>
                         );
                     })}

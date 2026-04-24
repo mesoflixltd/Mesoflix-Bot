@@ -20,7 +20,6 @@ $dc-cold:    #90caf9;
 .bt-page {
     display:        flex;
     flex-direction: column;
-    /* Removed overflow hidden to allow parent scroll */
     background:     var(--general-main-1);
     color:          var(--text-prominent);
     font-family:    'Inter', sans-serif;
@@ -131,7 +130,7 @@ $dc-cold:    #90caf9;
     gap:     0;
 
     input {
-        width:          70px;
+        width:          75px;
         padding:        0.5rem 0.8rem;
         border:         1px solid var(--general-section-1);
         border-right:   none;
@@ -167,7 +166,7 @@ $dc-cold:    #90caf9;
     flex-shrink:      0;
     background:       var(--general-main-1);
     position:         sticky;
-    top:              68px; /* Sticky below controls */
+    top:              61px;
     z-index:          9;
 
     .bt-inner {
@@ -221,7 +220,6 @@ $dc-cold:    #90caf9;
     flex:                     1;
     padding:                  1.4rem;
     padding-bottom:           4rem;
-    /* Removed overflow-y auto to let parent handle scroll */
 
     .bt-inner {
         flex-direction: column;
@@ -392,22 +390,30 @@ $dc-cold:    #90caf9;
 
 /* ─── Mini Popup ──────────────────────────────────────────────────────────── */
 .bt-mini-popup {
-    position:      absolute;
-    bottom:        120%;
-    left:          50%;
-    transform:     translateX(-50%);
-    background:    #0f172a;
-    color:         #f8fafc;
-    padding:       0.7rem 1.2rem;
-    border-radius: 0.8rem;
-    font-size:     0.9rem;
-    font-weight:   700;
-    white-space:   nowrap;
-    z-index:       200;
-    box-shadow:    0 10px 25px rgba(0,0,0,0.3);
-    animation:     bt-pop-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    pointer-events:none;
-    border:        1px solid rgba(255,255,255,0.1);
+    position:       absolute;
+    bottom:         120%;
+    left:           50%;
+    transform:      translateX(-50%);
+    background:     #0f172a;
+    color:          #f8fafc;
+    padding:        0.8rem 1.4rem;
+    border-radius:  1rem;
+    z-index:        300;
+    box-shadow:     0 12px 32px rgba(0,0,0,0.4);
+    animation:      bt-pop-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+    border:         1px solid rgba(255,255,255,0.1);
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            0.3rem;
+    min-width:      200px;
+    width:          max-content;
+
+    @media (max-width: 600px) {
+        min-width:  160px;
+        padding:    0.6rem 1rem;
+    }
 
     &::after {
         content:     '';
@@ -415,8 +421,30 @@ $dc-cold:    #90caf9;
         top:         100%;
         left:        50%;
         transform:   translateX(-50%);
-        border:      7px solid transparent;
-        border-top:  7px solid #0f172a;
+        border:      8px solid transparent;
+        border-top:  8px solid #0f172a;
+    }
+
+    &__title {
+        font-size:      0.75rem;
+        font-weight:    800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color:          #94a3b8;
+    }
+
+    &__value {
+        font-size:      1.1rem;
+        font-weight:    800;
+        font-family:    'Roboto Mono', monospace;
+        color:          $green;
+    }
+
+    &__extra {
+        font-size:      0.8rem;
+        font-weight:    600;
+        color:          #e2e8f0;
+        opacity:        0.9;
     }
 }
 
@@ -471,14 +499,12 @@ $dc-cold:    #90caf9;
     display:        flex;
     flex-direction: column;
     gap:            1rem;
-    /* Important: allow popups to overflow */
     overflow:       visible; 
 
     &__row {
         display:          flex;
         flex-wrap:        wrap;
         gap:              0.6rem;
-        /* Important: allow popups to overflow */
         overflow:         visible;
     }
 }
