@@ -1,0 +1,453 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Bulk Trading — Live Analysis Panel (ai-hub sub-page)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700&family=Inter:wght@400;600;700;800&display=swap');
+
+$green:  #00e676;
+$red:    #ff5252;
+$blue:   #00b4ff;
+$purple: #7f5cff;
+$gold:   #f5a623;
+
+/* ─── Page shell ──────────────────────────────────────────────────────────── */
+.bt-page {
+    display:        flex;
+    flex-direction: column;
+    height:         100%;
+    overflow:       hidden;
+    background:     var(--general-main-1);
+    color:          var(--text-prominent);
+    font-family:    'Inter', sans-serif;
+}
+
+/* ─── Status banners ──────────────────────────────────────────────────────── */
+.bt-banner {
+    display:        inline-flex;
+    align-items:    center;
+    gap:            0.5rem;
+    padding:        0.3rem 0.9rem;
+    border-radius:  2rem;
+    font-size:      1.15rem;
+    font-weight:    700;
+
+    &--ok    { background: rgba(0, 230, 118, 0.12); color: $green; }
+    &--info  { background: rgba(0, 180, 255, 0.12); color: $blue;  }
+    &--warn  { background: rgba(245, 166, 35, 0.12); color: $gold;  }
+    &--error { background: rgba(255, 82,  82, 0.12); color: $red;   }
+}
+
+/* ─── Top controls ────────────────────────────────────────────────────────── */
+.bt-controls {
+    display:         flex;
+    justify-content: space-between;
+    align-items:     center;
+    gap:             1.2rem;
+    padding:         1.2rem 1.6rem;
+    border-bottom:   1px solid var(--general-section-1);
+    flex-shrink:     0;
+    flex-wrap:       wrap;
+
+    &__left, &__right {
+        display:     flex;
+        align-items: center;
+        gap:         1rem;
+        flex-wrap:   wrap;
+    }
+}
+
+.bt-live-price {
+    display:     flex;
+    align-items: center;
+    gap:         0.6rem;
+
+    &__label {
+        font-size:   1.1rem;
+        font-weight: 600;
+        color:       var(--text-less-prominent);
+    }
+
+    &__value {
+        font-family: 'Roboto Mono', monospace;
+        font-size:   1.6rem;
+        font-weight: 700;
+        color:       var(--text-prominent);
+    }
+
+    &__digit {
+        display:        inline-flex;
+        align-items:    center;
+        justify-content:center;
+        width:          2.6rem;
+        height:         2.6rem;
+        border-radius:  50%;
+        background:     $purple;
+        color:          white;
+        font-weight:    800;
+        font-size:      1.4rem;
+        font-family:    'Roboto Mono', monospace;
+        animation:      bt-pop 0.3s ease;
+    }
+}
+
+.bt-select {
+    padding:       0.6rem 1rem;
+    border-radius: 0.8rem;
+    border:        1.5px solid var(--general-section-2);
+    background:    var(--general-section-1);
+    color:         var(--text-prominent);
+    font-size:     1.2rem;
+    font-weight:   600;
+    cursor:        pointer;
+    outline:       none;
+    transition:    border-color 0.2s;
+
+    &:focus { border-color: $purple; }
+}
+
+.bt-tick-input {
+    display: flex;
+    gap:     0;
+
+    input {
+        width:          8rem;
+        padding:        0.6rem 0.8rem;
+        border:         1.5px solid var(--general-section-2);
+        border-right:   none;
+        border-radius:  0.8rem 0 0 0.8rem;
+        background:     var(--general-main-1);
+        color:          var(--text-prominent);
+        font-family:    'Roboto Mono', monospace;
+        font-size:      1.3rem;
+        outline:        none;
+        &:focus { border-color: $purple; }
+    }
+
+    button {
+        padding:       0.6rem 1rem;
+        border:        1.5px solid $purple;
+        border-radius: 0 0.8rem 0.8rem 0;
+        background:    $purple;
+        color:         white;
+        font-weight:   800;
+        font-size:     1.2rem;
+        cursor:        pointer;
+        transition:    opacity 0.2s;
+
+        &:hover { opacity: 0.85; }
+    }
+}
+
+/* ─── Trade-type tab bar ──────────────────────────────────────────────────── */
+.bt-type-tabs {
+    display:          flex;
+    gap:              0;
+    overflow-x:       auto;
+    flex-shrink:      0;
+    scrollbar-width:  none;
+    border-bottom:    1px solid var(--general-section-1);
+    padding:          0 1.2rem;
+
+    &::-webkit-scrollbar { display: none; }
+}
+
+.bt-type-tab {
+    display:        flex;
+    align-items:    center;
+    gap:            0.5rem;
+    padding:        0.9rem 1.4rem;
+    border:         none;
+    border-bottom:  3px solid transparent;
+    margin-bottom:  -1px;
+    background:     transparent;
+    color:          var(--text-less-prominent);
+    font-size:      1.2rem;
+    font-weight:    600;
+    cursor:         pointer;
+    white-space:    nowrap;
+    transition:     all 0.2s;
+
+    &:hover        { color: var(--text-prominent); }
+
+    &--active {
+        color:        var(--text-prominent);
+        font-weight:  800;
+        border-color: $purple;
+    }
+}
+
+/* ─── Trade type description ──────────────────────────────────────────────── */
+.bt-type-desc {
+    padding:    0.6rem 1.6rem;
+    font-size:  1.1rem;
+    color:      var(--text-less-prominent);
+    flex-shrink:0;
+    border-bottom: 1px solid var(--general-section-1);
+}
+
+/* ─── Scrollable content ──────────────────────────────────────────────────── */
+.bt-content {
+    flex:                     1;
+    overflow-y:               auto;
+    overflow-x:               hidden;
+    padding:                  1.6rem;
+    padding-bottom:           6rem;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar          { width: 5px; }
+    &::-webkit-scrollbar-track    { background: transparent; }
+    &::-webkit-scrollbar-thumb    { background: var(--general-section-2); border-radius: 4px; }
+}
+
+/* ─── Loading ─────────────────────────────────────────────────────────────── */
+.bt-loading {
+    display:         flex;
+    flex-direction:  column;
+    align-items:     center;
+    gap:             1.2rem;
+    padding:         4rem;
+    color:           var(--text-less-prominent);
+    font-size:       1.3rem;
+
+    &__spinner {
+        width:         2.8rem;
+        height:        2.8rem;
+        border:        3px solid var(--general-section-2);
+        border-top:    3px solid $purple;
+        border-radius: 50%;
+        animation:     bt-spin 0.8s linear infinite;
+    }
+}
+
+/* ─── Analysis wrapper ────────────────────────────────────────────────────── */
+.bt-analysis {
+    display:        flex;
+    flex-direction: column;
+    gap:            1.4rem;
+    animation:      bt-fade-up 0.3s ease;
+
+    &__title {
+        display:         flex;
+        justify-content: space-between;
+        align-items:     center;
+        font-size:       1.3rem;
+        font-weight:     700;
+        color:           var(--text-prominent);
+
+        &--sub {
+            font-size: 1.15rem;
+            color:     var(--text-less-prominent);
+            margin-top: 0.4rem;
+        }
+    }
+
+    &__subtitle {
+        font-size:  1.1rem;
+        font-weight:400;
+        color:      var(--text-less-prominent);
+    }
+}
+
+/* ─── Digit grid ──────────────────────────────────────────────────────────── */
+.bt-digit-grid {
+    display:               grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap:                   0.5rem;
+
+    @media (max-width: 640px) {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+.bt-digit-cell {
+    display:         flex;
+    flex-direction:  column;
+    align-items:     center;
+    gap:             0.3rem;
+    padding:         0.8rem 0.4rem;
+    border-radius:   0.8rem;
+    border:          1.5px solid var(--general-section-2);
+    background:      var(--general-section-1);
+    transition:      all 0.2s;
+    cursor:          default;
+
+    &--high   { border-color: rgba($green, 0.5); background: rgba($green, 0.06); }
+    &--med    { border-color: rgba($blue, 0.4);  background: rgba($blue, 0.04); }
+    &--low    { border-color: var(--general-section-2); }
+    &--even   { border-color: rgba($blue, 0.4);  background: rgba($blue, 0.04); }
+    &--odd    { border-color: rgba($red, 0.4);   background: rgba($red, 0.04); }
+
+    &--flash  {
+        border-color: $gold !important;
+        background:   rgba($gold, 0.12) !important;
+        animation:    bt-pop 0.4s ease;
+    }
+
+    &__num {
+        font-family: 'Roboto Mono', monospace;
+        font-size:   1.8rem;
+        font-weight: 800;
+        color:       var(--text-prominent);
+    }
+
+    &__bar-wrap {
+        width:         100%;
+        height:        5rem;
+        background:    var(--general-main-1);
+        border-radius: 0.4rem;
+        overflow:      hidden;
+        display:       flex;
+        align-items:   flex-end;
+    }
+
+    &__bar {
+        width:         100%;
+        min-height:    2px;
+        background:    linear-gradient(180deg, $purple, $blue);
+        border-radius: 0.4rem 0.4rem 0 0;
+        transition:    height 0.4s ease;
+    }
+
+    &--even &__bar { background: linear-gradient(180deg, $blue, darken($blue, 10%)); }
+    &--odd  &__bar { background: linear-gradient(180deg, $red,  darken($red, 10%)); }
+
+    &__pct {
+        font-size:   1rem;
+        font-weight: 700;
+        color:       var(--text-prominent);
+        font-family: 'Roboto Mono', monospace;
+    }
+
+    &__count {
+        font-size:  0.9rem;
+        color:      var(--text-less-prominent);
+        font-family:'Roboto Mono', monospace;
+    }
+}
+
+/* ─── Even/Odd bars ───────────────────────────────────────────────────────── */
+.bt-eo-bars {
+    display:        flex;
+    flex-direction: column;
+    gap:            0.8rem;
+}
+
+.bt-eo-bar-row {
+    display:     flex;
+    align-items: center;
+    gap:         0.8rem;
+
+    &__label {
+        min-width:   6rem;
+        font-size:   1.2rem;
+        font-weight: 700;
+        color:       var(--text-prominent);
+    }
+
+    &__track {
+        flex:          1;
+        height:        1.4rem;
+        background:    var(--general-section-2);
+        border-radius: 0.7rem;
+        overflow:      hidden;
+    }
+
+    &__fill {
+        height:        100%;
+        border-radius: 0.7rem;
+        transition:    width 0.5s ease;
+
+        &--even { background: linear-gradient(90deg, $blue, lighten($blue, 10%)); }
+        &--odd  { background: linear-gradient(90deg, $red,  lighten($red, 10%)); }
+        &--rise { background: linear-gradient(90deg, $green, lighten($green, 10%)); }
+        &--fall { background: linear-gradient(90deg, $red,   lighten($red, 10%)); }
+    }
+
+    &__pct {
+        min-width:  4rem;
+        font-size:  1.15rem;
+        font-weight:700;
+        font-family:'Roboto Mono', monospace;
+        color:       var(--text-prominent);
+        text-align:  right;
+    }
+
+    &__count {
+        font-size:  1rem;
+        color:      var(--text-less-prominent);
+        font-family:'Roboto Mono', monospace;
+    }
+}
+
+/* ─── Trail ───────────────────────────────────────────────────────────────── */
+.bt-trail {
+    display:        flex;
+    flex-direction: column;
+    gap:            0.6rem;
+
+    &__label {
+        font-size:  1.1rem;
+        font-weight:600;
+        color:      var(--text-less-prominent);
+    }
+
+    &__row {
+        display:          flex;
+        flex-wrap:        wrap;
+        gap:              0.3rem;
+        max-height:       12rem;
+        overflow-y:       auto;
+        scrollbar-width:  thin;
+
+        &--prices { gap: 0.4rem; }
+    }
+}
+
+.bt-trail__pill {
+    display:         inline-flex;
+    align-items:     center;
+    justify-content: center;
+    width:           2.2rem;
+    height:          2.2rem;
+    border-radius:   50%;
+    font-size:       1.1rem;
+    font-weight:     700;
+    font-family:     'Roboto Mono', monospace;
+    transition:      transform 0.2s;
+    color:           white;
+
+    &--high    { background: rgba($green,  0.75); }
+    &--low     { background: rgba($purple, 0.7);  }
+    &--even    { background: rgba($blue,   0.75); }
+    &--odd     { background: rgba($red,    0.75); }
+    &--rise    { background: rgba($green,  0.75); }
+    &--fall    { background: rgba($red,    0.75); }
+    &--latest  { transform: scale(1.25); box-shadow: 0 0 6px rgba($gold, 0.6); }
+}
+
+.bt-trail__price {
+    font-family: 'Roboto Mono', monospace;
+    font-size:   1.1rem;
+    font-weight: 600;
+    padding:     0.15rem 0.5rem;
+    border-radius: 0.4rem;
+
+    &--rise { color: $green; background: rgba($green, 0.08); }
+    &--fall { color: $red;   background: rgba($red,   0.08); }
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+@keyframes bt-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes bt-fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bt-pop {
+    0%   { transform: scale(0.85); }
+    50%  { transform: scale(1.15); }
+    100% { transform: scale(1);    }
+}

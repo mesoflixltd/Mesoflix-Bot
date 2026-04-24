@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
+import BulkTradingPage from './bulk-trading';
 import './ai-hub.scss';
 
 // ─── Sub-page components ──────────────────────────────────────────────────────
@@ -42,43 +43,7 @@ const AIScannerPage = () => (
     </div>
 );
 
-const BulkTradingPage = () => (
-    <div className='aihub-subpage aihub-subpage--bulk'>
-        <div className='aihub-subpage__hero'>
-            <div className='aihub-subpage__hero-icon'>⚡</div>
-            <h2>Bulk Trading</h2>
-            <p>Execute multiple trades simultaneously across different markets and strategies. Set your parameters once and let the engine run a full session automatically.</p>
-            <div className='aihub-badge aihub-badge--beta'>● Beta — Coming Soon</div>
-        </div>
-
-        <div className='aihub-features-grid'>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>🔁</div>
-                <h3>Multi-Market Execution</h3>
-                <p>Run trades on R_10, R_25, R_50 and more at the same time with individual stake and payout settings.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>🛡️</div>
-                <h3>Session Risk Cap</h3>
-                <p>Define a maximum loss per session. The engine automatically stops all active trades when the cap is hit.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>📋</div>
-                <h3>Trade Queue</h3>
-                <p>Build a queue of trade instructions that execute in sequence or in parallel based on market conditions.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>📈</div>
-                <h3>Auto Compounding</h3>
-                <p>Automatically scale up your stake based on win streaks and scale down after losses to protect capital.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-        </div>
-    </div>
-);
+const BulkTradingPageTab = () => <BulkTradingPage />;
 
 const UltimateTraderPage = () => (
     <div className='aihub-subpage aihub-subpage--ultimate'>
@@ -177,7 +142,7 @@ const AIHub = observer(() => {
             {/* ─── Sub-page content ─── */}
             <div className='aihub-content'>
                 {activeTab === 'scanner'  && <AIScannerPage />}
-                {activeTab === 'bulk'     && <BulkTradingPage />}
+                {activeTab === 'bulk'     && <BulkTradingPageTab />}
                 {activeTab === 'ultimate' && <UltimateTraderPage />}
             </div>
 
