@@ -16,13 +16,6 @@ const RING_R = 38;
 const RING_C = 2 * Math.PI * RING_R; // ~238.76
 const RING_MAX_PCT = 16; // 16% fills the ring completely
 
-const HEAT: Record<THeat, { a: string; b: string; glow: string }> = {
-    hot:     { a: '#ff6b35', b: '#f7003a', glow: '247,0,58'     },
-    warm:    { a: '#ffd700', b: '#ff8c00', glow: '255,140,0'    },
-    neutral: { a: '#7f5cff', b: '#00d2ff', glow: '127,92,255'   },
-    cold:    { a: '#38f9d7', b: '#43e97b', glow: '56,249,215'   },
-};
-
 const FALLBACK_SYMBOLS: TSymbol[] = [
     { symbol: 'R_10',    display_name: 'Volatility 10 Index'       },
     { symbol: 'R_25',    display_name: 'Volatility 25 Index'       },
@@ -37,12 +30,6 @@ const FALLBACK_SYMBOLS: TSymbol[] = [
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const getLastDigit = (v: number | string): number => {
-    const s = String(v).replace('.', '');
-    const d = Number(s[s.length - 1]);
-    return Number.isFinite(d) ? d : 0;
-};
-
 const getHeat = (pct: number): THeat => {
     if (pct >= 12.5) return 'hot';
     if (pct >= 10.5) return 'warm';
@@ -67,6 +54,7 @@ const DCircles = observer(() => {
     const subIdRef         = useRef<string | null>(null);
     const selectedSymbolRef   = useRef(initialSymbol);
     const flashTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pipSizesRef      = useRef<Record<string, number>>({});
 
     const [symbols,       setSymbols]       = useState<TSymbol[]>(FALLBACK_SYMBOLS);
     const [selectedSymbol, setSelectedSymbol] = useState<string>(initialSymbol);
@@ -76,7 +64,12 @@ const DCircles = observer(() => {
     const [lastDigit,     setLastDigit]     = useState<number | null>(null);
     const [connStatus,    setConnStatus]    = useState<'connecting'|'connected'|'closed'|'error'>('connecting');
 
-    selectedSymbolRef.current = selectedSymbol;
+    const getDigit = useCallback((val: number | string) => {
+        const symbol = selectedSymbolRef.current;
+        const pip = (pipSizesRef.current as any)[symbol] ?? 2;
+        const s = Number(val).toFixed(pip);
+        return Number(s[s.length - 1]);
+    }, []);
 
     const send = useCallback((payload: Record<string, unknown>) => {
         const ws = wsRef.current;
@@ -108,11 +101,20 @@ const DCircles = observer(() => {
                 if (msg_type === 'active_symbols' && req_id === REQ_ACTIVE_SYMBOLS) {
                     const raw: TActiveSymbolItem[] = msg.active_symbols ?? [];
                     const volatile = raw.filter(i => typeof i.symbol === 'string' && /^(R_\d|1HZ\d)/.test(i.symbol));
-                    const fetched: TSymbol[] = volatile.length > 0
-                        ? volatile.map(i => ({ symbol: i.symbol, display_name: i.display_name ?? i.symbol }))
-                              .sort((a, b) => a.display_name.localeCompare(b.display_name))
-                        : FALLBACK_SYMBOLS;
-                    setSymbols(fetched);
+                    const fetched: TSymbol[] = volatile.map(i => ({ symbol: i.symbol, display_name: i.display_name ?? i.symbol }));
+
+                    // Extract pip sizes for correct digit calculation
+                    const pips: Record<string, number> = {};
+                    raw.forEach(s => {
+                        if (s.symbol) {
+                            // Guess pip size from common Deriv patterns if not explicit
+                            // Usually indices are 2 or 3 decimals
+                            pips[s.symbol] = (s as any).pip ? Math.abs(Math.log10((s as any).pip)) : 2;
+                        }
+                    });
+                    pipSizesRef.current = pips;
+                    setSymbols(fetched.sort((a, b) => a.display_name.localeCompare(b.display_name)));
+
                     const target = fetched.find(s => s.symbol === selectedSymbolRef.current)?.symbol
                         ?? fetched.find(s => s.symbol === 'R_10')?.symbol
                         ?? fetched[0]?.symbol;
@@ -122,7 +124,9 @@ const DCircles = observer(() => {
                 if (msg_type === 'history' && req_id === REQ_TICKS) {
                     if (msg.subscription?.id) subIdRef.current = msg.subscription.id;
                     const prices: (number | string)[] = msg.history?.prices ?? [];
-                    if (prices.length > 0) setDigitsWindow(prices.map(p => getLastDigit(p)).slice(-1000));
+                    if (prices.length > 0) {
+                        setDigitsWindow(prices.map(p => getDigit(p)).slice(-1000));
+                    }
                     setLiveLoading(false);
                 }
 
@@ -130,7 +134,7 @@ const DCircles = observer(() => {
                     if (!subIdRef.current && msg.tick?.subscription?.id) subIdRef.current = msg.tick.subscription.id;
                     const quote = msg.tick?.quote;
                     if (quote !== undefined) {
-                        const digit = getLastDigit(quote);
+                        const digit = getDigit(quote);
                         setDigitsWindow(prev => [...prev.slice(-999), digit]);
                         setLivePrice(quote);
                         setLastDigit(digit);
@@ -240,12 +244,10 @@ const DCircles = observer(() => {
                 </div>
             )}
 
-            {/* Digit ring grid */}
+            {/* Digit Grid */}
             <div className='dcircles-grid'>
-                {digitStats.map(({ digit, count, percentage }) => {
+                {digitStats.map(({ digit, percentage }) => {
                     const heat   = getHeat(percentage);
-                    const { a, b, glow } = HEAT[heat];
-                    const dashOffset = RING_C * (1 - Math.min(percentage / RING_MAX_PCT, 1));
                     const isHottest = digit === hottestDigit;
                     const isFlash   = digit === lastDigit;
 
@@ -258,44 +260,29 @@ const DCircles = observer(() => {
                                 isHottest ? 'dcircles-card--hottest' : '',
                                 isFlash   ? 'dcircles-card--flash'   : '',
                             ].join(' ').trim()}
-                            style={{ '--glow': glow } as React.CSSProperties}
                         >
                             <div className='dcircles-card__ring'>
                                 <svg viewBox='0 0 100 100' className='dcircles-card__svg'>
-                                    <defs>
-                                        <linearGradient id={`lg${digit}`} x1='0%' y1='0%' x2='100%' y2='100%'>
-                                            <stop offset='0%'   stopColor={a} />
-                                            <stop offset='100%' stopColor={b} />
-                                        </linearGradient>
-                                        <filter id={`glow${digit}`} x='-30%' y='-30%' width='160%' height='160%'>
-                                            <feGaussianBlur stdDeviation='3' result='blur' />
-                                            <feMerge><feMergeNode in='blur' /><feMergeNode in='SourceGraphic' /></feMerge>
-                                        </filter>
-                                    </defs>
-                                    {/* Background track */}
                                     <circle cx='50' cy='50' r={RING_R} className='dcircles-card__track' />
-                                    {/* Progress arc */}
                                     <circle
                                         cx='50' cy='50' r={RING_R}
                                         className='dcircles-card__arc'
-                                        stroke={`url(#lg${digit})`}
                                         strokeDasharray={RING_C}
-                                        strokeDashoffset={dashOffset}
-                                        filter={isHottest ? `url(#glow${digit})` : undefined}
+                                        strokeDashoffset={RING_C * (1 - Math.min(percentage / RING_MAX_PCT, 1))}
                                     />
-                                    {/* Digit label and Percentage */}
-                                    <text x='50' y='48' className='dcircles-card__num'>{digit}</text>
-                                    <text x='50' y='64' className='dcircles-card__pct-inner'>{percentage}%</text>
                                 </svg>
+                                <div className='dcircles-card__num'>{digit}</div>
                             </div>
-                            <div className='dcircles-card__footer'>
-                                <span className='dcircles-card__ticks'>{count} ticks</span>
-                                {isHottest && <span className='dcircles-card__badge'>🔥</span>}
-                                {digit === coldestDigit && <span className='dcircles-card__badge'>❄️</span>}
+                            <div className='dcircles-card__pct-pill'>
+                                {percentage}%
                             </div>
                         </div>
                     );
                 })}
+            </div>
+            
+            <div className='dcircles-page__footer-stats'>
+                Highest: <strong>{digitStats[hottestDigit]?.percentage}%</strong> | Lowest: <strong>{digitStats[coldestDigit]?.percentage}%</strong>
             </div>
         </div>
     );
