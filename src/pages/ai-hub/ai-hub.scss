@@ -116,25 +116,32 @@
     }
 }
 
-/* ─── Content area (scrollable) ───────────────────────────────────────────── */
+/* ─── Content area — NO outer scroll; each sub-page owns its scroll ──────── */
 .aihub-content {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-
-    &::-webkit-scrollbar        { width: 5px; }
-    &::-webkit-scrollbar-track  { background: transparent; }
-    &::-webkit-scrollbar-thumb  { background: var(--general-section-2); border-radius: 4px; }
+    flex:            1;
+    overflow:        hidden;       // tabs & header NEVER move
+    display:         flex;
+    flex-direction:  column;
+    min-height:      0;            // critical for nested flex scroll
 }
 
-/* ─── Sub-pages ───────────────────────────────────────────────────────────── */
+/* ─── Sub-pages — each one scrolls itself ────────────────────────────────── */
 .aihub-subpage {
-    padding: 2.4rem;
-    padding-bottom: 6rem;
-    max-width: 960px;
-    margin: 0 auto;
-    animation: aihub-fade-up 0.3s ease;
+    flex:                       1;    // fill .aihub-content
+    overflow-y:                 auto;
+    overflow-x:                 hidden;
+    -webkit-overflow-scrolling: touch;
+    padding:                    2.4rem;
+    padding-bottom:             6rem;
+    max-width:                  960px;
+    width:                      100%;
+    margin:                     0 auto;
+    animation:                  aihub-fade-up 0.3s ease;
+
+    &::-webkit-scrollbar          { width: 5px; }
+    &::-webkit-scrollbar-track    { background: transparent; }
+    &::-webkit-scrollbar-thumb    { background: var(--general-section-2); border-radius: 4px; }
+    &::-webkit-scrollbar-thumb:hover { background: var(--text-less-prominent); }
 
     /* Per-tab accent gradient overrides */
     &--scanner  { --hero-color-a: #00b4ff; --hero-color-b: #00e676; }
