@@ -726,7 +726,7 @@
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
-    z-index: 3;
+    z-index: 9999 !important; // Forced to top
     min-width: 16rem;
     background-color: var(--general-main-2);
     border-radius: $BORDER_RADIUS;

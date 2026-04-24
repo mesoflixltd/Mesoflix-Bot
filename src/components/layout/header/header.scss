@@ -2,6 +2,7 @@
 @use 'components/shared/styles/mixins' as *;
 
 .app-header {
+    z-index: 100;
     &__build-version {
         margin-left: 0.8rem;
         padding: 0.2rem 0.6rem;
