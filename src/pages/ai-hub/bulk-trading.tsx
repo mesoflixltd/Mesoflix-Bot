@@ -340,19 +340,7 @@ const BulkTradingPage: React.FC = observer(() => {
                 barrier = prediction.toString();
             }
 
-            const baseProposal = {
-                proposal: 1,
-                amount: currentStake,
-                basis: 'stake',
-                contract_type,
-                currency: authData$.value?.currency || 'USD',
-                duration: 1,
-                duration_unit: 't',
-                underlying_symbol: currentSymbol,
-                barrier
-            };
-
-            // 2. Execute Direct Batch Buy (Bypasses proposal/caching issues)
+// 2. Execute Direct Batch Buy (Bypasses proposal/caching issues)
             console.log(`[BulkTrade] Executing direct batch-buy for ${bulkCount} positions...`);
             
             const buyPromises = [];
@@ -368,7 +356,7 @@ const BulkTradingPage: React.FC = observer(() => {
                         currency: authData$.value?.currency || 'USD',
                         duration: 1,
                         duration_unit: 't',
-                        symbol: currentSymbol,
+                        underlying_symbol: currentSymbol,
                         barrier: barrier ? barrier.toString() : undefined
                     },
                     subscribe: 1,
