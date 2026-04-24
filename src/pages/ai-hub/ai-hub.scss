@@ -24,8 +24,9 @@
     padding:         1.2rem 2.4rem;
     border-bottom:   1px solid var(--general-section-1);
     flex-shrink:     0; /* Header stays same size */
-    z-index:         40; // Lowered to allow account switcher overlay
+    z-index:         2; // Minimal to allow account switcher overlay
     background:      var(--general-main-1);
+    width:           100%;
 
     &__text {
         h1 {
@@ -64,7 +65,8 @@
     border-bottom:  1px solid var(--general-section-1);
     background:     var(--general-main-1);
     flex-shrink:    0; /* Tabs NEVER move */
-    z-index:        39; // Lowered to allow account switcher overlay
+    z-index:        1; // Minimal to allow account switcher overlay
+    width:          100%;
 }
 
 .aihub-tab {
@@ -125,7 +127,8 @@
     -webkit-overflow-scrolling: touch;
     padding:                    1.6rem;
     padding-bottom:             10rem;
-    width:                      100%;
+    width:                      100% !important;
+    max-width:                  none !important;
     animation:                  aihub-fade-up 0.3s ease;
 
     &::-webkit-scrollbar          { width: 5px; }

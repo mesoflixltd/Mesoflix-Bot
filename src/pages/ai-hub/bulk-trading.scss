@@ -32,7 +32,8 @@ $dc-cold:    #90caf9;
 
 /* ─── Layout containers ───────────────────────────────────────────────────── */
 .bt-inner {
-    width:      100%;
+    width:      100% !important;
+    max-width:  none !important;
     display:    flex;
     align-items: center;
 }
