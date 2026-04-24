@@ -16,6 +16,26 @@ const RING_R       = 38;
 const RING_C       = 2 * Math.PI * RING_R;
 const RING_MAX_PCT = 16;
 
+// Known pip sizes for common Deriv synthetic symbols
+const KNOWN_PIPS: Record<string, number> = {
+    R_10: 3, R_25: 3, R_50: 2, R_75: 2, R_100: 2,
+    '1HZ10V': 3, '1HZ25V': 3, '1HZ50V': 2, '1HZ75V': 2, '1HZ100V': 2,
+};
+
+// Fallback symbol list shown while API loads
+const FALLBACK_SYMBOLS: TSymbol[] = [
+    { symbol: 'R_10',    display_name: 'Volatility 10 Index'       },
+    { symbol: 'R_25',    display_name: 'Volatility 25 Index'       },
+    { symbol: 'R_50',    display_name: 'Volatility 50 Index'       },
+    { symbol: 'R_75',    display_name: 'Volatility 75 Index'       },
+    { symbol: 'R_100',   display_name: 'Volatility 100 Index'      },
+    { symbol: '1HZ10V',  display_name: 'Volatility 10 (1s) Index'  },
+    { symbol: '1HZ25V',  display_name: 'Volatility 25 (1s) Index'  },
+    { symbol: '1HZ50V',  display_name: 'Volatility 50 (1s) Index'  },
+    { symbol: '1HZ75V',  display_name: 'Volatility 75 (1s) Index'  },
+    { symbol: '1HZ100V', display_name: 'Volatility 100 (1s) Index' },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getHeat = (pct: number): THeat => {
     if (pct >= 12.5) return 'hot';
@@ -27,20 +47,20 @@ const getHeat = (pct: number): THeat => {
 // ─── Component ────────────────────────────────────────────────────────────────
 const DCircles = observer(() => {
     const persisted    = typeof window !== 'undefined' ? localStorage.getItem('dcircles_selected_market') : null;
-    const initialSymbol = persisted && persisted.length ? persisted : 'R_10';
+    const initialSymbol = (persisted && persisted.length) ? persisted : 'R_10';
 
-    // Refs — survive re-renders without causing them
+    // Seed pip sizes with known values immediately
     const wsRef             = useRef<WebSocket | null>(null);
     const subIdRef          = useRef<string | null>(null);
     const selectedSymbolRef = useRef<string>(initialSymbol);
-    const pipSizesRef       = useRef<Record<string, number>>({});
+    const pipSizesRef       = useRef<Record<string, number>>(KNOWN_PIPS);
     const tickCountRef      = useRef<number>(1000);
     const flashTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
     const reconnTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isDestroyedRef    = useRef(false);
 
-    // State
-    const [symbols,        setSymbols]        = useState<TSymbol[]>([]);
+    // State — start with fallback symbols immediately (no blank dropdown)
+    const [symbols,        setSymbols]        = useState<TSymbol[]>(FALLBACK_SYMBOLS);
     const [selectedSymbol, setSelectedSymbol] = useState<string>(initialSymbol);
     const [livePrice,      setLivePrice]      = useState<string | number>('—');
     const [digitsWindow,   setDigitsWindow]   = useState<number[]>([]);
@@ -98,6 +118,12 @@ const DCircles = observer(() => {
         ws.onopen = () => {
             if (isDestroyedRef.current) { ws.close(); return; }
             setConnStatus('connected');
+
+            // ① Immediately subscribe to ticks with the known/persisted symbol
+            //    — data appears right away, no waiting for active_symbols
+            doSubscribe(selectedSymbolRef.current);
+
+            // ② Concurrently fetch full market list to populate the dropdown
             safeSend({ active_symbols: 'brief', req_id: REQ_ACTIVE_SYMBOLS });
         };
 
@@ -113,38 +139,63 @@ const DCircles = observer(() => {
                 }
 
                 // ── active_symbols ────────────────────────────────────────
-                if (msg_type === 'active_symbols' && req_id === REQ_ACTIVE_SYMBOLS) {
-                    const raw: TActiveSymbolItem[] = msg.active_symbols ?? [];
-                    const volatile = raw.filter(
-                        i => typeof i.symbol === 'string' && /^(R_\d|1HZ\d)/.test(i.symbol)
-                    );
-                    const fetched: TSymbol[] = volatile.map(i => ({
-                        symbol:       i.symbol,
-                        display_name: i.display_name ?? i.symbol,
-                    }));
+                if (msg_type === 'active_symbols') {
+                    const raw: any[] = msg.active_symbols ?? [];
 
-                    // Build pip map
-                    const pips: Record<string, number> = {};
-                    raw.forEach(s => {
-                        if (s.symbol) {
-                            pips[s.symbol] = s.pip ? Math.round(Math.abs(Math.log10(s.pip))) : 2;
+                    // Log first item so we can see exact field names the API returns
+                    if (raw.length > 0) {
+                        console.log('[DCircles] active_symbols sample item:', JSON.stringify(raw[0]));
+                    } else {
+                        console.warn('[DCircles] active_symbols returned empty array');
+                        return;
+                    }
+
+                    // Field name normaliser — new API may use different names
+                    const normalise = (item: any): TSymbol | null => {
+                        // Try multiple possible field names
+                        const sym: string =
+                            item.symbol ?? item.underlying ?? item.code ?? item.id ?? '';
+                        const name: string =
+                            item.display_name ?? item.name ?? item.description ?? item.verbose_name ?? sym;
+                        if (!sym) return null;
+                        return { symbol: sym, display_name: name };
+                    };
+
+                    const fetched: TSymbol[] = (raw as any[])
+                        .map(normalise)
+                        .filter((i): i is TSymbol =>
+                            i !== null && /^(R_|1HZ)/.test(i.symbol)
+                        );
+
+                    console.log(`[DCircles] Parsed ${fetched.length} volatile symbols from API`);
+
+                    // Update pip map — pip field may vary too
+                    const pips: Record<string, number> = { ...KNOWN_PIPS };
+                    raw.forEach((s: any) => {
+                        const sym = s.symbol ?? s.underlying ?? s.code ?? '';
+                        const pip = s.pip ?? s.pip_size ?? s.decimal_places;
+                        if (sym && pip) {
+                            pips[sym] = typeof pip === 'number' && pip < 1
+                                ? Math.round(Math.abs(Math.log10(pip)))
+                                : Number(pip);
                         }
                     });
                     pipSizesRef.current = pips;
 
-                    const sorted = fetched.sort((a, b) => a.display_name.localeCompare(b.display_name));
-                    setSymbols(sorted);
+                    if (fetched.length > 0) {
+                        const sorted = fetched.sort((a, b) => a.display_name.localeCompare(b.display_name));
+                        setSymbols(sorted);
 
-                    // Pick best target symbol
-                    const target =
-                        sorted.find(s => s.symbol === selectedSymbolRef.current)?.symbol ??
-                        sorted.find(s => s.symbol === 'R_10')?.symbol ??
-                        sorted[0]?.symbol;
-
-                    if (target) {
-                        selectedSymbolRef.current = target;
-                        setSelectedSymbol(target);
-                        doSubscribe(target);
+                        // Only re-subscribe if the current symbol is NOT in the fetched list
+                        const inList = sorted.some(s => s.symbol === selectedSymbolRef.current);
+                        if (!inList) {
+                            const target = sorted.find(s => s.symbol === 'R_10')?.symbol ?? sorted[0]?.symbol;
+                            if (target) {
+                                selectedSymbolRef.current = target;
+                                setSelectedSymbol(target);
+                                doSubscribe(target);
+                            }
+                        }
                     }
                 }
 

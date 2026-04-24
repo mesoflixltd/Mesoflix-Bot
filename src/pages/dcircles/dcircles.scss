@@ -128,7 +128,7 @@
       border-radius: 8px;
       border: 1px solid var(--general-section-1);
       background: var(--general-main-2);
-      color: var(--text-prominent);
+      color: var(--text-prominent);  // always visible
       font-size: 0.95rem;
       font-weight: 600;
       font-family: inherit;
@@ -136,6 +136,9 @@
       transition: border-color 0.2s;
 
       &:focus { border-color: #7f5cff; }
+
+      // Dark mode select option fallback
+      option { background: var(--general-main-2); color: var(--text-prominent); }
     }
 
     input[type='number'] { width: 100px; }
@@ -304,6 +307,7 @@
       font-size: 1.4rem;
       font-weight: 800;
       font-family: 'Roboto Mono', monospace;
+      color: var(--text-prominent);  // explicit — visible on both light & dark
     }
 
     &__pct-pill {
@@ -312,6 +316,10 @@
       font-family: 'Roboto Mono', monospace;
       color: var(--text-less-prominent);
     }
+
+    // Override pct-pill color for highest/lowest — these are set per-card
+    &--highest &__pct-pill { color: #00e676; }
+    &--lowest  &__pct-pill { color: #ff5252; }
   }
 
   /* ─────────────────── ANALYSIS BLOCKS ─────────────────── */
