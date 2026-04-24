@@ -62,6 +62,8 @@ const DCircles = observer(() => {
     const [digitsWindow,  setDigitsWindow]  = useState<number[]>(buildSeedWindow);
     const [liveLoading,   setLiveLoading]   = useState(false);
     const [lastDigit,     setLastDigit]     = useState<number | null>(null);
+    const tickCountRef    = useRef<number>(1000);
+    const [tickInputVal,  setTickInputVal]  = useState<string>('1000');
     const [connStatus,    setConnStatus]    = useState<'connecting'|'connected'|'closed'|'error'>('connecting');
 
     const getDigit = useCallback((val: number | string) => {
@@ -79,8 +81,10 @@ const DCircles = observer(() => {
     const subscribeToSymbol = useCallback((symbol: string) => {
         if (!symbol) return;
         if (subIdRef.current) { send({ forget: subIdRef.current }); subIdRef.current = null; }
+        send({ forget_all: 'ticks' });
         setLiveLoading(true);
-        send({ ticks_history: symbol, end: 'latest', count: 1000, style: 'ticks', subscribe: 1, req_id: REQ_TICKS });
+        setDigitsWindow([]); // Clear window while loading
+        send({ ticks_history: symbol, end: 'latest', count: tickCountRef.current, style: 'ticks', subscribe: 1, req_id: REQ_TICKS });
     }, [send]);
 
     useEffect(() => {
@@ -125,7 +129,7 @@ const DCircles = observer(() => {
                     if (msg.subscription?.id) subIdRef.current = msg.subscription.id;
                     const prices: (number | string)[] = msg.history?.prices ?? [];
                     if (prices.length > 0) {
-                        setDigitsWindow(prices.map(p => getDigit(p)).slice(-1000));
+                        setDigitsWindow(prices.map(p => getDigit(p)).slice(-tickCountRef.current));
                     }
                     setLiveLoading(false);
                 }
@@ -133,9 +137,13 @@ const DCircles = observer(() => {
                 if (msg_type === 'tick') {
                     if (!subIdRef.current && msg.tick?.subscription?.id) subIdRef.current = msg.tick.subscription.id;
                     const quote = msg.tick?.quote;
-                    if (quote !== undefined) {
+                    if (quote !== undefined && selectedSymbolRef.current === msg.tick?.symbol) {
                         const digit = getDigit(quote);
-                        setDigitsWindow(prev => [...prev.slice(-999), digit]);
+                        setDigitsWindow(prev => {
+                            // Only append if the array is populated (i.e. not cleared by loading)
+                            if (prev.length === 0) return [digit];
+                            return [...prev.slice(-(tickCountRef.current - 1)), digit];
+                        });
                         setLivePrice(quote);
                         setLastDigit(digit);
                         if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
@@ -161,6 +169,22 @@ const DCircles = observer(() => {
         setSelectedSymbol(symbol);
         localStorage.setItem('dcircles_selected_market', symbol);
         subscribeToSymbol(symbol);
+    };
+
+    const applyTickCount = (newCount: number) => {
+        if (newCount < 50) newCount = 50;
+        if (newCount > 5000) newCount = 5000;
+        setTickInputVal(String(newCount));
+        tickCountRef.current = newCount;
+        subscribeToSymbol(selectedSymbolRef.current);
+    };
+
+    const handleTickKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            const val = parseInt(tickInputVal, 10);
+            if (!isNaN(val)) applyTickCount(val);
+            (e.target as HTMLInputElement).blur();
+        }
     };
 
     const digitStats = useMemo(() => {
@@ -228,12 +252,31 @@ const DCircles = observer(() => {
 
             {/* Controls */}
             <div className='dcircles-page__controls'>
-                <label htmlFor='dcircles-symbol'><Localize i18n_default_text='Market' /></label>
-                <div className='dcircles-page__select-wrap'>
-                    <select id='dcircles-symbol' value={selectedSymbol} onChange={e => handleSymbolChange(e.target.value)}>
-                        {symbols.map(s => <option key={s.symbol} value={s.symbol}>{s.display_name}</option>)}
-                    </select>
-                    {liveLoading && <span className='dcircles-page__spinner' />}
+                <div className='dcircles-control-group'>
+                    <label htmlFor='dcircles-symbol'><Localize i18n_default_text='Market' /></label>
+                    <div className='dcircles-page__select-wrap'>
+                        <select id='dcircles-symbol' value={selectedSymbol} onChange={e => handleSymbolChange(e.target.value)}>
+                            {symbols.map(s => <option key={s.symbol} value={s.symbol}>{s.display_name}</option>)}
+                        </select>
+                        {liveLoading && <span className='dcircles-page__spinner' />}
+                    </div>
+                </div>
+                
+                <div className='dcircles-control-group dcircles-control-group--ticks'>
+                    <label htmlFor='dcircles-ticks'><Localize i18n_default_text='Ticks' /></label>
+                    <input 
+                        id='dcircles-ticks'
+                        type='number' 
+                        value={tickInputVal} 
+                        onChange={e => setTickInputVal(e.target.value)}
+                        onBlur={() => {
+                            const val = parseInt(tickInputVal, 10);
+                            if (!isNaN(val)) applyTickCount(val);
+                        }}
+                        onKeyDown={handleTickKeyDown}
+                        min='50'
+                        max='5000'
+                    />
                 </div>
             </div>
 
@@ -249,6 +292,7 @@ const DCircles = observer(() => {
                 {digitStats.map(({ digit, percentage }) => {
                     const heat   = getHeat(percentage);
                     const isHottest = digit === hottestDigit;
+                    const isLowest  = digit === coldestDigit;
                     const isFlash   = digit === lastDigit;
 
                     return (
@@ -257,11 +301,14 @@ const DCircles = observer(() => {
                             className={[
                                 'dcircles-card',
                                 `dcircles-card--${heat}`,
-                                isHottest ? 'dcircles-card--hottest' : '',
+                                isHottest ? 'dcircles-card--highest' : '',
+                                isLowest  ? 'dcircles-card--lowest'  : '',
                                 isFlash   ? 'dcircles-card--flash'   : '',
                             ].join(' ').trim()}
                         >
+                            {isFlash && <div className='dcircles-card__cursor'>▼</div>}
                             <div className='dcircles-card__ring'>
+
                                 <svg viewBox='0 0 100 100' className='dcircles-card__svg'>
                                     <circle cx='50' cy='50' r={RING_R} className='dcircles-card__track' />
                                     <circle
