@@ -28,6 +28,15 @@ $dc-cold:    #90caf9;
     font-family:    'Inter', sans-serif;
 }
 
+/* ─── Inner constraint for premium wide-screen look ───────────────────────── */
+.bt-inner {
+    width:      100%;
+    max-width:  1800px;
+    margin:     0 auto;
+    display:    flex;
+    align-items: center;
+}
+
 /* ─── Status banners ──────────────────────────────────────────────────────── */
 .bt-banner {
     display:        inline-flex;
@@ -49,13 +58,16 @@ $dc-cold:    #90caf9;
 /* ─── Top controls ────────────────────────────────────────────────────────── */
 .bt-controls {
     display:         flex;
-    justify-content: space-between;
-    align-items:     center;
-    gap:             1.2rem;
+    justify-content: center; // Center the inner
     padding:         1rem 1.6rem;
     border-bottom:   1px solid var(--general-section-1);
     flex-shrink:     0;
-    flex-wrap:       wrap;
+
+    .bt-inner {
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+    }
 
     &__left, &__right {
         display:     flex;
@@ -148,14 +160,17 @@ $dc-cold:    #90caf9;
 /* ─── Trade-type tab bar ──────────────────────────────────────────────────── */
 .bt-type-tabs {
     display:          flex;
-    gap:              0.5rem;
-    overflow-x:       auto;
-    flex-shrink:      0;
-    scrollbar-width:  none;
+    justify-content:  center;
     border-bottom:    1px solid var(--general-section-1);
     padding:          0.5rem 1.2rem;
+    flex-shrink:      0;
 
-    &::-webkit-scrollbar { display: none; }
+    .bt-inner {
+        gap: 0.5rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+        &::-webkit-scrollbar { display: none; }
+    }
 }
 
 .bt-type-tab {
@@ -185,6 +200,8 @@ $dc-cold:    #90caf9;
 
 /* ─── Trade type description ──────────────────────────────────────────────── */
 .bt-type-desc {
+    display:    flex;
+    justify-content: center;
     padding:    0.5rem 1.6rem;
     font-size:  0.9rem;
     color:      var(--text-less-prominent);
@@ -203,6 +220,11 @@ $dc-cold:    #90caf9;
     &::-webkit-scrollbar          { width: 4px; }
     &::-webkit-scrollbar-track    { background: transparent; }
     &::-webkit-scrollbar-thumb    { background: var(--general-section-2); border-radius: 4px; }
+
+    .bt-inner {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 
 /* ─── Loading ─────────────────────────────────────────────────────────────── */
@@ -230,6 +252,7 @@ $dc-cold:    #90caf9;
     flex-direction: column;
     gap:            1.6rem;
     animation:      bt-fade-up 0.3s ease;
+    width:          100%;
 
     &__title {
         display:         flex;

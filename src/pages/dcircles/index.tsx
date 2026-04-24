@@ -4,7 +4,6 @@ import './dcircles.scss';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TSymbol = { symbol: string; display_name: string };
-type TActiveSymbolItem = { symbol: string; display_name?: string; pip?: number };
 type THeat = 'hot' | 'warm' | 'neutral' | 'cold';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
