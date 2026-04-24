@@ -1,68 +1,99 @@
 /* ═══════════════════════════════════════════════════════════════════
-   DCircles — Premium Compact Digit Analysis UI
+   DCircles — Professional Trading UI (Refactored)
+   Clean • Responsive • Data-first design
    ═══════════════════════════════════════════════════════════════════ */
 
 .dcircles-page {
-  position: relative;
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 2.4rem;
-  background: var(--general-main-1);
+  min-height: 100%;
+  padding: 2rem;
   box-sizing: border-box;
-  color: var(--text-prominent);
+
   display: flex;
   flex-direction: column;
   align-items: center;
 
-  > * { position: relative; z-index: 1; width: 100%; max-width: 900px; }
+  background: var(--general-main-1);
+  color: var(--text-prominent);
 
-  // Header
+  > * {
+    width: 100%;
+    max-width: 1000px;
+  }
+
+  /* ───────── HEADER ───────── */
   &__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 1.5rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
+
+    margin-bottom: 1.8rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--general-section-1);
+    flex-wrap: wrap;
   }
 
-  &__title-wrap { flex: 1; min-width: 200px; }
-
   &__title {
-    margin: 0 0 0.4rem;
-    font-size: 2.2rem;
+    font-size: 1.9rem;
     font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--text-prominent);
+    margin: 0;
   }
 
   &__subtitle {
-    margin: 0;
-    font-size: 1.1rem;
+    margin-top: 0.3rem;
+    font-size: 1rem;
     color: var(--text-less-prominent);
   }
 
-  // Connection status
+  /* ───────── PRICE ───────── */
+  &__price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+    &-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-less-prominent);
+      letter-spacing: 0.08em;
+    }
+
+    &-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      font-family: 'Roboto Mono', monospace;
+      letter-spacing: -0.02em;
+    }
+  }
+
+  /* ───────── STATUS ───────── */
   &__status {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    gap: 0.5rem;
+
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
 
-    &--connected  { background: rgba(0,200,83,.1); color: #00e676; }
-    &--connecting { background: rgba(255,193,7,.1); color: #ffca28; }
+    &--connected {
+      background: rgba(0, 230, 118, 0.1);
+      color: #00e676;
+    }
+
+    &--connecting {
+      background: rgba(255, 193, 7, 0.1);
+      color: #ffca28;
+    }
+
     &--closed,
-    &--error      { background: rgba(244,67,54,.1); color: #ff5252; }
+    &--error {
+      background: rgba(255, 82, 82, 0.1);
+      color: #ff5252;
+    }
   }
 
   &__status-dot {
@@ -70,89 +101,41 @@
     height: 6px;
     border-radius: 50%;
     background: currentColor;
-    box-shadow: 0 0 6px currentColor;
     .dcircles-page__status--connected & {
       animation: dc-pulse 2s ease-in-out infinite;
     }
   }
 
-  // Price display
-  &__price {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    
-    .dcircles-page__price-label {
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--text-less-prominent);
-        text-transform: uppercase;
-    }
-    
-    .dcircles-page__price-value {
-      font-size: 1.8rem;
-      font-weight: 800;
-      color: var(--text-prominent);
-      font-family: 'Courier New', Courier, monospace;
-    }
-  }
-
+  /* ───────── CONTROLS ───────── */
   &__controls {
     display: flex;
-    align-items: flex-end;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-    width: 100%;
-    
-    .dcircles-control-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-
-        label {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-less-prominent);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        &--ticks input {
-            width: 120px;
-            padding: 0.8rem;
-            border-radius: 8px;
-            border: 1px solid var(--general-section-1);
-            background: var(--general-main-2);
-            color: var(--text-prominent);
-            font-size: 1.2rem;
-            font-weight: 600;
-            outline: none;
-            transition: all 0.2s;
-            &:focus { border-color: #7f5cff; }
-        }
-    }
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
   }
 
-  &__select-wrap {
-    min-width: 200px;
-    position: relative;
-    
+  .dcircles-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+
+    label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-less-prominent);
+    }
+
+    input,
     select {
-      width: 100%;
-      padding: 0.8rem 2.4rem 0.8rem 1.2rem;
+      padding: 0.7rem 0.9rem;
       border-radius: 8px;
       border: 1px solid var(--general-section-1);
       background: var(--general-main-2);
       color: var(--text-prominent);
-      font-size: 1.2rem;
+
+      font-size: 0.95rem;
       font-weight: 600;
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 1rem center;
-      transition: all 0.2s;
 
       &:focus {
         outline: none;
@@ -161,82 +144,70 @@
     }
   }
 
+  &__select-wrap {
+    position: relative;
+  }
+
   &__spinner {
     position: absolute;
-    right: 3.5rem;
+    right: 2rem;
     top: 50%;
     transform: translateY(-50%);
-    width: 1.2rem;
-    height: 1.2rem;
+    width: 1rem;
+    height: 1rem;
     border: 2px solid rgba(127,92,255,.2);
     border-top-color: #7f5cff;
     border-radius: 50%;
     animation: dc-spin 0.6s linear infinite;
   }
 
-  // Grid / Flex layout for cards
+  /* ───────── GRID ───────── */
   .dcircles-grid {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    margin-top: 1rem;
-    background: var(--general-main-2);
-    padding: 3rem 2rem 2rem;
-    border-radius: 16px;
-    border: 1px solid var(--general-section-1);
-    position: relative;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 1.2rem;
 
-    &::before {
-        content: 'Digit Distribution';
-        position: absolute;
-        top: 1.2rem;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: var(--text-prominent);
-        letter-spacing: 0.03em;
-    }
+    padding: 1.8rem;
+    border-radius: 14px;
+
+    background: var(--general-main-2);
+    border: 1px solid var(--general-section-1);
   }
 
-  // Compact Card
+  /* ───────── CARD ───────── */
   .dcircles-card {
-    position: relative;
+    background: var(--general-main-1);
+    border: 1px solid var(--general-section-1);
+    border-radius: 14px;
+
+    padding: 1rem 0.6rem;
+
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.6rem;
-    width: 70px; /* Small fixed width */
-    transition: transform 0.2s;
+
+    transition: all 0.2s ease;
 
     &:hover {
-      transform: translateY(-2px);
+      transform: translateY(-4px);
+      border-color: #7f5cff;
     }
 
-    // Heat variants
-    &--hot     { --ring-color: #ffb300; }
-    &--warm    { --ring-color: #ffd54f; }
-    &--neutral { --ring-color: #2979ff; }
-    &--cold    { --ring-color: #82b1ff; }
+    /* Heat colors */
+    &--hot     { --ring-color: #ff9100; }
+    &--warm    { --ring-color: #ffc400; }
+    &--neutral { --ring-color: #448aff; }
+    &--cold    { --ring-color: #90caf9; }
 
     &--highest {
-        .dcircles-card__pct-pill, .dcircles-card__ring, .dcircles-card__arc {
-            background: rgba(0, 230, 118, 0.15);
-            color: #00e676;
-            border-color: rgba(0, 230, 118, 0.4);
-            stroke: #00e676;
-        }
+      border-color: #00e676;
+      box-shadow: 0 0 10px rgba(0,230,118,0.2);
     }
 
     &--lowest {
-        .dcircles-card__pct-pill, .dcircles-card__ring, .dcircles-card__arc {
-            background: rgba(255, 59, 59, 0.15);
-            color: #ff3b3b;
-            border-color: rgba(255, 59, 59, 0.4);
-            stroke: #ff3b3b;
-        }
+      border-color: #ff5252;
+      box-shadow: 0 0 10px rgba(255,82,82,0.2);
     }
 
     &--flash .dcircles-card__ring { 
@@ -245,7 +216,7 @@
 
     &__cursor {
         position: absolute;
-        top: -18px;
+        top: -24px;
         color: #00b4ff;
         font-size: 1rem;
         animation: dc-bounce 0.5s infinite alternate ease-in-out;
@@ -253,78 +224,122 @@
         text-shadow: 0 0 5px rgba(0,180,255,0.8);
     }
 
+    /* Ring */
     &__ring {
-        width: 100%;
-        aspect-ratio: 1;
-        position: relative;
-        background: var(--general-main-1); /* Inner circle background */
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    &__svg { 
-        position: absolute;
-        inset: 0;
-        width: 100%; 
-        height: 100%; 
-        overflow: visible; 
-        transform: rotate(-90deg);
-    }
-    
-    &__track { 
-        fill: none; 
-        stroke: var(--general-section-1); 
-        stroke-width: 8; 
-    }
-    
-    &__arc {
-      fill: none;
-      stroke-width: 8;
-      stroke-linecap: round;
-      stroke: var(--ring-color);
-      transition: stroke-dashoffset 0.5s ease;
-    }
-    
-    &__num {
-      position: absolute;
-      font-size: 2.2rem;
-      font-weight: 800;
-      color: var(--text-prominent);
-      line-height: 1;
+      width: 64px;
+      height: 64px;
+      position: relative;
     }
 
+    &__svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    &__track {
+      stroke: var(--general-section-1);
+      stroke-width: 7;
+      fill: none;
+    }
+
+    &__arc {
+      stroke: var(--ring-color);
+      stroke-width: 7;
+      stroke-linecap: round;
+      fill: none;
+      transition: stroke-dashoffset 0.4s ease;
+    }
+
+    /* Digit */
+    &__num {
+      position: absolute;
+      inset: 0;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      font-size: 1.7rem;
+      font-weight: 800;
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    /* Percentage */
     &__pct-pill {
-        padding: 0.3rem 0.8rem;
-        background: var(--general-main-1);
-        border: 1px solid var(--general-section-1);
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: var(--text-prominent);
-        margin-top: 0.2rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+
+      background: rgba(127,92,255,0.08);
+      font-family: 'Roboto Mono', monospace;
     }
   }
 
+  /* ───────── FOOTER ───────── */
   &__footer-stats {
-    width: 100%;
-    text-align: center;
     margin-top: 1.5rem;
-    font-size: 1rem;
+    text-align: center;
+
+    font-size: 0.9rem;
     color: var(--text-less-prominent);
-    background: var(--general-main-2);
-    border: 1px solid var(--general-section-1);
-    padding: 1rem;
-    border-radius: 8px;
-    
+
     strong {
-        color: var(--text-prominent);
-        margin: 0 0.5rem;
+      color: var(--text-prominent);
     }
+  }
+
+  /* ───────── OFFLINE ───────── */
+  &__offline {
+    margin-top: 1rem;
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+
+    background: rgba(255, 82, 82, 0.1);
+    color: #ff5252;
+
+    font-size: 0.85rem;
   }
 }
 
+/* ───────── MOBILE ───────── */
+@media (max-width: 768px) {
+  .dcircles-page {
+    padding: 1.2rem;
+  }
+
+  .dcircles-page__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dcircles-page__price {
+    align-items: flex-start;
+  }
+
+  .dcircles-page__controls {
+    flex-direction: column;
+  }
+
+  .dcircles-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.8rem;
+    padding: 1rem;
+  }
+
+  .dcircles-card__ring {
+    width: 52px;
+    height: 52px;
+  }
+
+  .dcircles-card__num {
+    font-size: 1.3rem;
+  }
+}
+
+/* ───────── ANIMATIONS ───────── */
 @keyframes dc-spin { to { transform: rotate(360deg); } }
 @keyframes dc-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
