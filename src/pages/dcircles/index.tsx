@@ -91,10 +91,22 @@ const DCircles = observer(() => {
         const ws = new WebSocket(WS_URL);
         wsRef.current = ws;
 
-        // Helper that is always safe — checks readyState
+        // Styled console logger
+        const LOG = {
+            send:  (d: any)  => console.log('%c[DC ▶ SEND]', 'color:#7f5cff;font-weight:bold', d),
+            recv:  (d: any)  => console.log('%c[DC ◀ RECV]', 'color:#00b4ff;font-weight:bold', d),
+            info:  (m: string, ...a: any[]) => console.info( '%c[DC ℹ]',  'color:#00e676;font-weight:bold', m, ...a),
+            warn:  (m: string, ...a: any[]) => console.warn( '%c[DC ⚠]',  'color:#ffca28;font-weight:bold', m, ...a),
+            error: (m: string, ...a: any[]) => console.error('%c[DC ✖]',  'color:#ff5252;font-weight:bold', m, ...a),
+        };
+
+        // Helper that is always safe — checks readyState — logs every outbound message
         const safeSend = (payload: Record<string, unknown>) => {
             if (ws.readyState === WebSocket.OPEN) {
+                LOG.send(payload);
                 ws.send(JSON.stringify(payload));
+            } else {
+                LOG.warn('safeSend skipped — WS not OPEN', { readyState: ws.readyState, payload });
             }
         };
 
@@ -117,10 +129,11 @@ const DCircles = observer(() => {
 
         ws.onopen = () => {
             if (isDestroyedRef.current) { ws.close(); return; }
+            LOG.info('WebSocket CONNECTED →', WS_URL);
             setConnStatus('connected');
 
             // ① Immediately subscribe to ticks with the known/persisted symbol
-            //    — data appears right away, no waiting for active_symbols
+            LOG.info('Auto-subscribing to symbol:', selectedSymbolRef.current);
             doSubscribe(selectedSymbolRef.current);
 
             // ② Concurrently fetch full market list to populate the dropdown
@@ -130,10 +143,12 @@ const DCircles = observer(() => {
         ws.onmessage = event => {
             try {
                 const msg = JSON.parse(event.data as string);
+                // Log every single inbound message (raw)
+                LOG.recv(msg);
                 const { msg_type, req_id, error } = msg;
 
                 if (error) {
-                    console.warn('[DCircles] API error:', error.message);
+                    LOG.error('API error response:', error);
                     setLiveLoading(false);
                     return;
                 }
@@ -141,12 +156,12 @@ const DCircles = observer(() => {
                 // ── active_symbols ────────────────────────────────────────
                 if (msg_type === 'active_symbols') {
                     const raw: any[] = msg.active_symbols ?? [];
+                    LOG.info(`active_symbols received — ${raw.length} total items`);
 
-                    // Log first item so we can see exact field names the API returns
                     if (raw.length > 0) {
-                        console.log('[DCircles] active_symbols sample item:', JSON.stringify(raw[0]));
+                        LOG.info('First symbol item (to verify field names):', raw[0]);
                     } else {
-                        console.warn('[DCircles] active_symbols returned empty array');
+                        LOG.warn('active_symbols returned EMPTY array — markets will not load from API; using fallback list');
                         return;
                     }
 
@@ -167,7 +182,11 @@ const DCircles = observer(() => {
                             i !== null && /^(R_|1HZ)/.test(i.symbol)
                         );
 
-                    console.log(`[DCircles] Parsed ${fetched.length} volatile symbols from API`);
+                    LOG.info(`Filtered ${fetched.length} volatile symbols (R_ / 1HZ) out of ${raw.length} total`);
+                    if (fetched.length === 0) {
+                        LOG.warn('NO volatile symbols matched filter — check if symbol names use a different prefix!');
+                        LOG.info('All symbols from API:', raw.map((s:any) => s.symbol ?? s.underlying ?? s.code ?? '?'));
+                    }
 
                     // Update pip map — pip field may vary too
                     const pips: Record<string, number> = { ...KNOWN_PIPS };
@@ -203,13 +222,15 @@ const DCircles = observer(() => {
                 if (msg_type === 'history' && req_id === REQ_TICKS) {
                     if (msg.subscription?.id) subIdRef.current = msg.subscription.id;
                     const prices: (number | string)[] = msg.history?.prices ?? [];
+                    LOG.info(`History received — ${prices.length} prices, subscription:`, msg.subscription?.id);
                     if (prices.length > 0) {
                         const wPrices = prices.map(p => Number(p)).slice(-tickCountRef.current);
                         setPriceWindow(wPrices);
                         setDigitsWindow(wPrices.map(p => getDigit(p)));
-                        // Set live price to latest
                         const latest = wPrices[wPrices.length - 1];
                         if (latest !== undefined) setLivePrice(latest);
+                    } else {
+                        LOG.warn('History response had 0 prices — check symbol or count param');
                     }
                     setLiveLoading(false);
                 }
@@ -237,21 +258,23 @@ const DCircles = observer(() => {
                     }
                 }
             } catch (err) {
-                console.error('[DCircles] WS parse error:', err);
+                LOG.error('Failed to parse WS message:', err, 'raw data:', event.data?.substring(0, 300));
             }
         };
 
-        ws.onerror = () => {
+        ws.onerror = (event) => {
+            LOG.error('WebSocket ERROR event:', event);
             setConnStatus('error');
             setLiveLoading(false);
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
+            LOG.warn(`WebSocket CLOSED — code:${event.code} reason:'${event.reason}' wasClean:${event.wasClean}`);
             setConnStatus('closed');
             setLiveLoading(false);
             subIdRef.current = null;
-            // Auto-reconnect after 3s unless deliberately destroyed
             if (!isDestroyedRef.current) {
+                LOG.info('Scheduling reconnect in 3s…');
                 if (reconnTimerRef.current) clearTimeout(reconnTimerRef.current);
                 reconnTimerRef.current = setTimeout(() => connect(), 3000);
             }
