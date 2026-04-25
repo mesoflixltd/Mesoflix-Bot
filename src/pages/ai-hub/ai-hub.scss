@@ -127,9 +127,15 @@
     -webkit-overflow-scrolling: touch;
     padding:                    1.6rem;
     padding-bottom:             10rem;
-    width:                      100% !important;
-    max-width:                  none !important;
+    width:                      100%;
+    max-width:                  none;
+    display:                    flex;
+    flex-direction:             column;
     animation:                  aihub-fade-up 0.3s ease;
+
+    &--scanner {
+        padding: 0; // Scanner likes full bleed
+    }
 
     &::-webkit-scrollbar          { width: 5px; }
     &::-webkit-scrollbar-track    { background: transparent; }

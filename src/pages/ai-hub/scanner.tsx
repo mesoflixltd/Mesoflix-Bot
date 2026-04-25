@@ -282,12 +282,11 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
             </div>
 
             <div className="dss-grid">
-                {SCAN_SYMBOLS.filter(s => signals.some(sig => sig.symbol === s.symbol)).map(s => {
+                {SCAN_SYMBOLS.map(s => {
                     const data = marketStats[s.symbol];
                     const signal = signals.find(sig => sig.symbol === s.symbol);
-                    if (!signal) return null;
                     return (
-                        <div key={s.symbol} className={`dss-card ${signal ? 'dss-card--has-signal' : ''}`}>
+                        <div key={s.symbol} className={`dss-card ${signal ? 'dss-card--has-signal' : 'dss-card--scanning'}`}>
                             <div className="dss-card__market">
                                 <div className="dss-card__market-left">
                                     <span className="dss-card__name">{s.name}</span>
@@ -317,17 +316,24 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
                                     })}
                                 </div>
                             </div>
-                            <div className="dss-signal animated pulse">
-                                <div className="dss-signal__type">
-                                    <span className="label">RECOVERY DIGIT:</span>
-                                    <span className={`value ${signal.type.toLowerCase()}`}>{signal.type} {signal.prediction}</span>
+                            {signal ? (
+                                <div className="dss-signal animated pulse">
+                                    <div className="dss-signal__type">
+                                        <span className="label">RECOVERY DIGIT:</span>
+                                        <span className={`value ${signal.type.toLowerCase()}`}>{signal.type} {signal.prediction}</span>
+                                    </div>
+                                    <div className="dss-signal__confidence">
+                                        <div className="conf-bar"><div className="conf-fill" style={{ width: `${signal.confidence}%` }} /></div>
+                                        <span className="conf-text">{signal.confidence}% Confidence</span>
+                                    </div>
+                                    <button className="dss-trade-btn" onClick={() => setSelectedSignal(signal)}>LOAD & RUN BOT</button>
                                 </div>
-                                <div className="dss-signal__confidence">
-                                    <div className="conf-bar"><div className="conf-fill" style={{ width: `${signal.confidence}%` }} /></div>
-                                    <span className="conf-text">{signal.confidence}% Confidence</span>
+                            ) : (
+                                <div className="dss-no-signal">
+                                    <div className="dss-search-loader" />
+                                    <span>Hunting for DSS Bias...</span>
                                 </div>
-                                <button className="dss-trade-btn" onClick={() => setSelectedSignal(signal)}>LOAD & RUN BOT</button>
-                            </div>
+                            )}
                         </div>
                     );
                 })}
