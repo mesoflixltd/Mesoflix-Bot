@@ -59,11 +59,35 @@
     &--error { color: #ff4444; }
   }
 
+  .dss-grid-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+    }
+    &::-webkit-scrollbar-thumb {
+        background: rgba(0, 242, 255, 0.2);
+        border-radius: 10px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 242, 255, 0.4);
+    }
+  }
+
   .dss-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
     gap: 25px;
-    padding: 20px;
+
+    @media (max-width: 850px) {
+        grid-template-columns: 1fr;
+    }
   }
 
   .dss-card {
@@ -130,10 +154,16 @@
     }
 
     &__visual {
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.3);
       border-radius: 12px;
-      padding: 20px 10px;
+      padding: 24px 12px 20px;
       margin-bottom: 20px;
+      position: relative;
+    }
+
+    &--active {
+      box-shadow: 0 0 15px rgba(0, 242, 255, 0.15);
+      border-color: rgba(0, 242, 255, 0.3);
     }
   }
 
@@ -171,14 +201,10 @@
         left: 50%;
         transform: translateX(-50%);
         font-size: 0.65rem;
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.8);
-        opacity: 0;
-        transition: opacity 0.2s;
-      }
-
-      &:hover .pct-text {
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
         opacity: 1;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.5);
       }
     }
 

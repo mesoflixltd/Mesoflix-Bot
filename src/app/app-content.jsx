@@ -160,7 +160,50 @@ const AppContent = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized, client.loginid]);
 
+    const [show_landing, setShowLanding] = React.useState(true);
+
     if (common?.error) return null;
+
+    if (show_landing) {
+        return (
+            <div className='landing-overlay'>
+                <div className='landing-popup'>
+                    <div className='landing-popup__header'>
+                        <div className='landing-popup__logo'>M</div>
+                        <h2>Mesoflix Intelligence</h2>
+                        <p>Select your workspace to proceed to the command centre.</p>
+                    </div>
+                    <div className='landing-popup__options'>
+                        <a 
+                            href="https://mesoflix-legacy.vercel.app" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className='landing-option landing-option--legacy'
+                        >
+                            <div className='landing-option__icon'>🏛️</div>
+                            <div className='landing-option__text'>
+                                <h3>Legacy Account</h3>
+                                <p>Access your classic bots and historical data.</p>
+                            </div>
+                        </a>
+                        <button 
+                            className='landing-option landing-option--v2'
+                            onClick={() => setShowLanding(false)}
+                        >
+                            <div className='landing-option__icon'>🚀</div>
+                            <div className='landing-option__text'>
+                                <h3>New Account (V2)</h3>
+                                <p>Unlock AI Scanner and High-Speed Bulk Trading.</p>
+                            </div>
+                        </button>
+                    </div>
+                    <div className='landing-popup__footer'>
+                        <span>Encryption Active • Secure Trading Environment</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return is_loading ? (
         <ChunkLoader message={localize('Initializing Deriv Bot account...')} />

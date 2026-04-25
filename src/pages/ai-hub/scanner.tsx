@@ -260,9 +260,11 @@ interface IMarketData {
     symbol: string;
     prices: number[];
     digits: number[];
+    frequencies: number[]; // Pre-calculated percentages for digits 0-9
     pip_size: number;
     last_price: number;
     last_update: number;
+    tick_pulse?: number; // Timestamp for pulse animation
 }
 
 interface ISignal {
@@ -299,7 +301,13 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
         const initialStats: Record<string, IMarketData> = {};
         SCAN_SYMBOLS.forEach(s => {
             initialStats[s.symbol] = {
-                symbol: s.symbol, prices: [], digits: [], pip_size: s.pip, last_price: 0, last_update: Date.now()
+                symbol: s.symbol, 
+                prices: [], 
+                digits: [], 
+                frequencies: new Array(10).fill(10), // Start with neutral 10%
+                pip_size: s.pip, 
+                last_price: 0, 
+                last_update: Date.now()
             };
         });
         setMarketStats(initialStats);
@@ -315,19 +323,28 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
         }
 
         // Logic like Bulk Trading: handle 'history' then 'tick' flow
+        const calculateFrequencies = (digits: number[]) => {
+            if (!digits.length) return new Array(10).fill(0);
+            const counts = new Array(10).fill(0);
+            digits.forEach(d => counts[d]++);
+            return counts.map(c => (c / digits.length) * 100);
+        };
+
         if (msg_type === 'history') {
             const sym = echo_req.ticks_history;
+            if (!sym) return;
+
             const prices = (history?.prices ?? []).map(Number);
             const pip = Number(msg.pip_size ?? 2);
-            
-            console.warn(`[AI Scanner] Synced History: ${sym} (${prices.length} ticks)`);
+            const digits = prices.map((p: number) => getDigit(p, pip));
             
             setMarketStats(prev => ({
                 ...prev,
                 [sym]: { 
                     ...prev[sym], 
                     prices, 
-                    digits: prices.map((p: number) => getDigit(p, pip)), 
+                    digits,
+                    frequencies: calculateFrequencies(digits),
                     pip_size: pip, 
                     last_price: prices[prices.length - 1] || 0,
                     last_update: Date.now() 
@@ -335,11 +352,13 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
             }));
             
             syncCount.current += 1;
-            if (syncCount.current >= 5) setLoading(false); // Show UI as soon as half are ready
+            if (syncCount.current >= 5) setLoading(false);
         }
 
         if (msg_type === 'tick') {
             const sym = tick.symbol;
+            if (!sym) return;
+
             const quote = Number(tick.quote);
             const pip = Number(tick.pip_size ?? 2);
             const digit = getDigit(quote, pip);
@@ -347,15 +366,18 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
             setMarketStats(prev => {
                 const current = prev[sym];
                 if (!current) return prev;
+                const newDigits = [...current.digits, digit].slice(-WINDOW_SIZE);
                 return {
                     ...prev,
                     [sym]: { 
                         ...current, 
                         prices: [...current.prices, quote].slice(-WINDOW_SIZE),
-                        digits: [...current.digits, digit].slice(-WINDOW_SIZE),
+                        digits: newDigits,
+                        frequencies: calculateFrequencies(newDigits),
                         pip_size: pip, 
                         last_price: quote, 
-                        last_update: Date.now() 
+                        last_update: Date.now(),
+                        tick_pulse: Date.now()
                     }
                 };
             });
@@ -437,10 +459,7 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
         const results: ISignal[] = [];
         Object.values(marketStats).forEach(data => {
             if (data.digits.length < 50) return;
-            const freq: Record<number, number> = {};
-            data.digits.forEach(d => { freq[d] = (freq[d] || 0) + 1; });
-            const total = data.digits.length;
-            const pcts = [0,1,2,3,4,5,6,7,8,9].map(d => ({ digit: d, pct: ((freq[d] || 0) / total) * 100 }));
+            const pcts = data.frequencies.map((f, i) => ({ digit: i, pct: f }));
             
             const lowDigits = pcts.filter(p => p.digit <= 1).reduce((a,b) => a + b.pct, 0); 
             const highDigits = pcts.filter(p => p.digit >= 8).reduce((a,b) => a + b.pct, 0); 
@@ -499,62 +518,64 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
                 </div>
             </div>
 
-            <div className="dss-grid">
-                {SCAN_SYMBOLS.map(s => {
-                    const data = marketStats[s.symbol];
-                    const signal = signals.find(sig => sig.symbol === s.symbol);
-                    return (
-                        <div key={s.symbol} className={`dss-card ${signal ? 'dss-card--has-signal' : 'dss-card--scanning'}`}>
-                            <div className="dss-card__market">
-                                <div className="dss-card__market-left">
-                                    <span className="dss-card__name">{s.name}</span>
-                                    <span className="dss-card__symbol">{s.symbol}</span>
+            <div className="dss-grid-wrapper">
+                <div className="dss-grid">
+                    {SCAN_SYMBOLS.map(s => {
+                        const data = marketStats[s.symbol];
+                        const signal = signals.find(sig => sig.symbol === s.symbol);
+                        const isNewTick = data?.tick_pulse && (Date.now() - data.tick_pulse < 300);
+
+                        return (
+                            <div key={s.symbol} className={`dss-card ${signal ? 'dss-card--has-signal' : 'dss-card--scanning'} ${isNewTick ? 'dss-card--active' : ''}`}>
+                                <div className="dss-card__market">
+                                    <div className="dss-card__market-left">
+                                        <span className="dss-card__name">{s.name}</span>
+                                        <span className="dss-card__symbol">{s.symbol}</span>
+                                    </div>
+                                    <div className="dss-card__market-right">
+                                        <span className="dss-price">{data?.last_price?.toFixed(data?.pip_size || 2)}</span>
+                                    </div>
                                 </div>
-                                <div className="dss-card__market-right">
-                                    <span className="dss-price">{data?.last_price?.toFixed(data?.pip_size || 2)}</span>
-                                </div>
-                            </div>
-                            <div className="dss-card__visual">
-                                <div className="dss-distribution">
-                                    {[0,1,2,3,4,5,6,7,8,9].map(d => {
-                                        const count = data?.digits.filter(x => x === d).length || 0;
-                                        const pct = data?.digits.length ? (count / data.digits.length) * 100 : 0;
-                                        const deviation = pct - 10;
-                                        return (
-                                            <div key={d} className="dss-dist-bar">
-                                                <div 
-                                                    className={`dss-dist-fill ${deviation > 2 ? 'high' : (deviation < -2 ? 'low' : '')}`}
-                                                    style={{ height: `${Math.max(5, Math.min(pct * 3.5, 100))}%` }}
-                                                >
-                                                    <span className="pct-text">{pct.toFixed(0)}%</span>
+                                <div className="dss-card__visual">
+                                    <div className="dss-distribution">
+                                        {data?.frequencies.map((pct, d) => {
+                                            const deviation = pct - 10;
+                                            return (
+                                                <div key={d} className="dss-dist-bar">
+                                                    <div 
+                                                        className={`dss-dist-fill ${deviation > 2 ? 'high' : (deviation < -2 ? 'low' : '')}`}
+                                                        style={{ height: `${Math.max(5, Math.min(pct * 3.5, 100))}%` }}
+                                                    >
+                                                        <span className="pct-text">{pct.toFixed(0)}%</span>
+                                                    </div>
+                                                    <span className="dss-dist-label">{d}</span>
                                                 </div>
-                                                <span className="dss-dist-label">{d}</span>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
+                                {signal ? (
+                                    <div className="dss-signal animated pulse">
+                                        <div className="dss-signal__type">
+                                            <span className="label">RECOVERY TARGET:</span>
+                                            <span className={`value ${signal.type.toLowerCase()}`}>{signal.type} {signal.prediction}</span>
+                                        </div>
+                                        <div className="dss-signal__confidence">
+                                            <div className="conf-bar"><div className="conf-fill" style={{ width: `${signal.confidence}%` }} /></div>
+                                            <span className="conf-text">{signal.confidence}% Confidence</span>
+                                        </div>
+                                        <button className="dss-trade-btn" onClick={() => setSelectedSignal(signal)}>LOAD & RUN BOT</button>
+                                    </div>
+                                ) : (
+                                    <div className="dss-no-signal">
+                                        <div className="dss-search-loader" />
+                                        <span>Monitoring Bias... [{data?.digits.length || 0}/1000]</span>
+                                    </div>
+                                )}
                             </div>
-                            {signal ? (
-                                <div className="dss-signal animated pulse">
-                                    <div className="dss-signal__type">
-                                        <span className="label">RECOVERY TARGET:</span>
-                                        <span className={`value ${signal.type.toLowerCase()}`}>{signal.type} {signal.prediction}</span>
-                                    </div>
-                                    <div className="dss-signal__confidence">
-                                        <div className="conf-bar"><div className="conf-fill" style={{ width: `${signal.confidence}%` }} /></div>
-                                        <span className="conf-text">{signal.confidence}% Confidence</span>
-                                    </div>
-                                    <button className="dss-trade-btn" onClick={() => setSelectedSignal(signal)}>LOAD & RUN BOT</button>
-                                </div>
-                            ) : (
-                                <div className="dss-no-signal">
-                                    <div className="dss-search-loader" />
-                                    <span>Monitoring Bias... [{data?.digits.length || 0}/1000]</span>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
 
             {selectedSignal && (
