@@ -24,7 +24,6 @@ const SCAN_SYMBOLS = [
 
 const WINDOW_SIZE = 1000;
 
-// High-Performance XML Template with IDs for targeting
 const TEMPLATE_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <block type="trade_definition" id="trade_def_main" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
@@ -119,6 +118,7 @@ const getDigit = (price: number, pip: number) => {
     return Number(s[s.length - 1]);
 };
 
+// ── AIScanner Component ─────────────────────────────────────────────────────
 const AIScannerPage: React.FC = observer((): JSX.Element => {
     const navigate = useNavigate();
     const [marketStats, setMarketStats] = useState<Record<string, IMarketData>>({});
@@ -133,7 +133,9 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
 
     const wsRef = useRef<WebSocket | null>(null);
     const destroyed = useRef(false);
+    const syncCount = useRef(0);
 
+    // Initial State Setup
     useEffect(() => {
         const initialStats: Record<string, IMarketData> = {};
         SCAN_SYMBOLS.forEach(s => {
@@ -144,27 +146,79 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
         setMarketStats(initialStats);
     }, []);
 
+    const handleMessage = useCallback((event: MessageEvent) => {
+        const msg = JSON.parse(event.data);
+        const { msg_type, error, echo_req, tick, history } = msg;
+
+        if (error) {
+            console.error('[AI Scanner] API ERROR:', error.message);
+            return;
+        }
+
+        // Logic like Bulk Trading: handle 'history' then 'tick' flow
+        if (msg_type === 'history') {
+            const sym = echo_req.ticks_history;
+            const prices = (history?.prices ?? []).map(Number);
+            const pip = Number(msg.pip_size ?? 2);
+            
+            console.warn(`[AI Scanner] Synced History: ${sym} (${prices.length} ticks)`);
+            
+            setMarketStats(prev => ({
+                ...prev,
+                [sym]: { 
+                    ...prev[sym], 
+                    prices, 
+                    digits: prices.map((p: number) => getDigit(p, pip)), 
+                    pip_size: pip, 
+                    last_price: prices[prices.length - 1] || 0,
+                    last_update: Date.now() 
+                }
+            }));
+            
+            syncCount.current += 1;
+            if (syncCount.current >= 5) setLoading(false); // Show UI as soon as half are ready
+        }
+
+        if (msg_type === 'tick') {
+            const sym = tick.symbol;
+            const quote = Number(tick.quote);
+            const pip = Number(tick.pip_size ?? 2);
+            const digit = getDigit(quote, pip);
+            
+            setMarketStats(prev => {
+                const current = prev[sym];
+                if (!current) return prev;
+                return {
+                    ...prev,
+                    [sym]: { 
+                        ...current, 
+                        prices: [...current.prices, quote].slice(-WINDOW_SIZE),
+                        digits: [...current.digits, digit].slice(-WINDOW_SIZE),
+                        pip_size: pip, 
+                        last_price: quote, 
+                        last_update: Date.now() 
+                    }
+                };
+            });
+        }
+    }, []);
+
     useEffect(() => {
-        let wsUrl: string | null = null;
         const connect = async () => {
             if (destroyed.current) return;
-            console.warn('[AI Scanner] Initializing Data Stream...');
             setWsStatus('connecting');
             try {
                 const authInfo = OAuthTokenExchangeService.getAuthInfo();
-                if (!authInfo?.access_token) {
-                    console.error('[AI Scanner] No Auth Token Found');
-                    return;
-                }
-                wsUrl = await DerivWSAccountsService.getAuthenticatedWebSocketURL(authInfo.access_token);
+                if (!authInfo?.access_token) return;
+
+                const wsUrl = await DerivWSAccountsService.getAuthenticatedWebSocketURL(authInfo.access_token);
                 const ws = new WebSocket(wsUrl);
                 wsRef.current = ws;
 
                 ws.onopen = () => {
-                    console.warn('[AI Scanner] Socket Connected. Subscribing to 10 markets...');
                     setWsStatus('connected');
+                    console.warn('[AI Scanner] Unified Feed Active. Subscribing...');
                     
-                    // Stagger subscriptions to avoid rate limiting
                     SCAN_SYMBOLS.forEach((s, index) => {
                         setTimeout(() => {
                             if (ws.readyState === WebSocket.OPEN) {
@@ -174,82 +228,20 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
                                     end: 'latest', 
                                     style: 'ticks', 
                                     subscribe: 1, 
-                                    req_id: 2000 + index
+                                    req_id: 3000 + index
                                 }));
-                                console.warn(`[AI Scanner] Subscribed to ${s.symbol} (ReqID: ${2000 + index})`);
                             }
-                        }, index * 100);
+                        }, index * 150);
                     });
                 };
 
-                ws.onmessage = (event) => {
-                    if (destroyed.current) return;
-                    const msg = JSON.parse(event.data);
-                    const { msg_type, error, echo_req } = msg;
-
-                    if (error) {
-                        console.error('[AI Scanner] WS Error:', error.message, echo_req);
-                        return;
-                    }
-
-                    if (msg_type === 'history') {
-                        const sym = echo_req.ticks_history;
-                        const prices = (msg.history?.prices ?? []).map(Number);
-                        const pip = Number(msg.pip_size ?? 2);
-                        console.warn(`[AI Scanner] Received ${prices.length} historical ticks for ${sym}`);
-                        
-                        setMarketStats(prev => ({
-                            ...prev,
-                            [sym]: { 
-                                ...prev[sym], 
-                                prices, 
-                                digits: prices.map((p: number) => getDigit(p, pip)), 
-                                pip_size: pip, 
-                                last_price: prices[prices.length - 1] || 0,
-                                last_update: Date.now() 
-                            }
-                        }));
-                        setLoading(false);
-                    }
-
-                    if (msg_type === 'tick') {
-                        const t = msg.tick;
-                        const sym = t.symbol;
-                        const quote = Number(t.quote);
-                        const pip = Number(t.pip_size ?? 2);
-                        const digit = getDigit(quote, pip);
-                        
-                        setMarketStats(prev => {
-                            const current = prev[sym];
-                            if (!current) return prev;
-                            const newDigits = [...current.digits, digit].slice(-WINDOW_SIZE);
-                            return {
-                                ...prev,
-                                [sym]: { 
-                                    ...current, 
-                                    prices: [...current.prices, quote].slice(-WINDOW_SIZE),
-                                    digits: newDigits,
-                                    pip_size: pip, 
-                                    last_price: quote, 
-                                    last_update: Date.now() 
-                                }
-                            };
-                        });
-                    }
-                };
-
-                ws.onclose = () => { 
-                    console.warn('[AI Scanner] Socket Closed. Reconnecting in 3s...');
-                    if (!destroyed.current) setTimeout(connect, 3000); 
-                };
-            } catch (e) { 
-                console.error('[AI Scanner] Connection Failed:', e);
-                setWsStatus('error'); 
-            }
+                ws.onmessage = handleMessage;
+                ws.onclose = () => { if (!destroyed.current) setTimeout(connect, 3000); };
+            } catch (e) { setWsStatus('error'); }
         };
         connect();
         return () => { destroyed.current = true; wsRef.current?.close(); };
-    }, []);
+    }, [handleMessage]);
 
     const handleLaunchBot = useCallback(() => {
         if (!selectedSignal) return;
@@ -265,41 +257,37 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
         try {
             const workspace = (window.Blockly as any)?.derivWorkspace;
             if (!workspace) return;
-            
             const dom = window.Blockly.utils.xml.textToDom(adaptiveXml);
             workspace.clear();
             window.Blockly.Xml.domToWorkspace(dom, workspace);
-            
-            globalObserver.emit('ui.log.info', `[AI Scanner] Launching DSS Engine for ${selectedSignal.symbol}...`);
-            globalObserver.emit('ui.log.info', `[DSS] Recovery: ${selectedSignal.type} ${selectedSignal.prediction}`);
-            
+            globalObserver.emit('ui.log.info', `[DSS] Executing ${selectedSignal.type} strategy on ${selectedSignal.symbol}`);
             setTimeout(() => { DBot.runBot(); navigate('/'); }, 500);
-        } catch (e: any) { console.error('Bot launch failed:', e); }
+        } catch (e: any) { console.error('Launch failed:', e); }
     }, [selectedSignal, stake, martingale, takeProfit, stopLoss, navigate]);
 
     const signals = useMemo(() => {
         const results: ISignal[] = [];
         Object.values(marketStats).forEach(data => {
-            if (data.digits.length < 50) return; // Need some data to speak!
+            if (data.digits.length < 50) return;
             const freq: Record<number, number> = {};
             data.digits.forEach(d => { freq[d] = (freq[d] || 0) + 1; });
             const total = data.digits.length;
             const pcts = [0,1,2,3,4,5,6,7,8,9].map(d => ({ digit: d, pct: ((freq[d] || 0) / total) * 100 }));
             
-            const lowDigits = pcts.filter(p => p.digit <= 1).reduce((a,b) => a + b.pct, 0); // 0, 1
-            const highDigits = pcts.filter(p => p.digit >= 8).reduce((a,b) => a + b.pct, 0); // 8, 9
+            const lowDigits = pcts.filter(p => p.digit <= 1).reduce((a,b) => a + b.pct, 0); 
+            const highDigits = pcts.filter(p => p.digit >= 8).reduce((a,b) => a + b.pct, 0); 
 
             if (lowDigits < 15) {
                 results.push({
                     symbol: data.symbol, type: 'OVER', prediction: 1,
                     confidence: Math.round(Math.min(100, (20 - lowDigits) * 10)),
-                    reason: `Low density 0-1 digits (${lowDigits.toFixed(1)}%)`
+                    reason: `Low cluster 0-1`
                 });
             } else if (highDigits < 15) {
                 results.push({
                     symbol: data.symbol, type: 'UNDER', prediction: 8,
                     confidence: Math.round(Math.min(100, (20 - highDigits) * 10)),
-                    reason: `Low density 8-9 digits (${highDigits.toFixed(1)}%)`
+                    reason: `Low cluster 8-9`
                 });
             }
         });
@@ -312,11 +300,11 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
                 <div className="dss-scanner__title">
                     <h2>Deriv Smart Scanner</h2>
                     <div className={`dss-status dss-status--${wsStatus}`}>
-                        {wsStatus === 'connected' ? '● Intelligence Active' : '○ Synchronizing...'}
+                        {wsStatus === 'connected' ? '● Real-Time Feed Active' : '○ Resyncing Matrix...'}
                     </div>
                 </div>
                 <div className="dss-scanner__summary">
-                    {loading ? 'Initializing Matrix...' : `Analysis: Over 1 / Under 8 • Active Symbols: ${Object.keys(marketStats).length}`}
+                    {loading ? 'Initializing Analysis...' : `Mode: Over 1 / Under 8 • Markets Synced: ${syncCount.current}/10`}
                 </div>
             </div>
 
@@ -344,8 +332,8 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
                                         return (
                                             <div key={d} className="dss-dist-bar">
                                                 <div 
-                                                    className={`dss-dist-fill ${deviation > 3 ? 'high' : (deviation < -3 ? 'low' : '')}`}
-                                                    style={{ height: `${Math.min(pct * 3.5, 100)}%` }}
+                                                    className={`dss-dist-fill ${deviation > 2 ? 'high' : (deviation < -2 ? 'low' : '')}`}
+                                                    style={{ height: `${Math.max(5, Math.min(pct * 3.5, 100))}%` }}
                                                 >
                                                     <span className="pct-text">{pct.toFixed(0)}%</span>
                                                 </div>
@@ -358,7 +346,7 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
                             {signal ? (
                                 <div className="dss-signal animated pulse">
                                     <div className="dss-signal__type">
-                                        <span className="label">RECOVERY DIGIT:</span>
+                                        <span className="label">RECOVERY TARGET:</span>
                                         <span className={`value ${signal.type.toLowerCase()}`}>{signal.type} {signal.prediction}</span>
                                     </div>
                                     <div className="dss-signal__confidence">
@@ -370,7 +358,7 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
                             ) : (
                                 <div className="dss-no-signal">
                                     <div className="dss-search-loader" />
-                                    <span>Hunting for DSS Bias... [{data?.digits.length || 0}/1000]</span>
+                                    <span>Monitoring Bias... [{data?.digits.length || 0}/1000]</span>
                                 </div>
                             )}
                         </div>
