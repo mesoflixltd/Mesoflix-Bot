@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate } from 'react-router-dom';
-import { OAuthTokenExchangeService } from '@/services/oauth-token-exchange.service';
-import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
+import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
 import DBot from '../../external/bot-skeleton/scratch/dbot';
 import { updateScannerBotXML } from './utils/xml-engine';
@@ -25,7 +24,15 @@ const SCAN_SYMBOLS = [
 const WINDOW_SIZE = 1000;
 
 const TEMPLATE_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
-  <block type="trade_definition" id="trade_def_main" deletable="false" x="0" y="60">
+  <variables>
+    <variable id="v_stake">stake</variable>
+    <variable id="v_martingale">martingale</variable>
+    <variable id="v_tp">take_profit</variable>
+    <variable id="v_sl">stop_loss</variable>
+    <variable id="v_current_stake">current_stake</variable>
+    <variable id="v_total_profit">total_profit</variable>
+  </variables>
+  <block type="trade_definition" id="trade_def_main" deletable="false" x="0" y="0">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="market_id_001" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
@@ -59,19 +66,79 @@ const TEMPLATE_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_
         </next>
       </block>
     </statement>
+    <statement name="INITIALIZATION">
+      <block type="variables_set" id="init_stake">
+        <field name="VAR" id="v_stake">stake</field>
+        <value name="VALUE">
+          <block type="math_number" id="stake_id_001">
+            <field name="NUM">0.35</field>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set" id="init_current_stake">
+            <field name="VAR" id="v_current_stake">current_stake</field>
+            <value name="VALUE">
+              <block type="variables_get">
+                <field name="VAR" id="v_stake">stake</field>
+              </block>
+            </value>
+            <next>
+              <block type="variables_set" id="init_martingale">
+                <field name="VAR" id="v_martingale">martingale</field>
+                <value name="VALUE">
+                  <block type="math_number" id="martingale_id_001">
+                    <field name="NUM">2</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="init_tp">
+                    <field name="VAR" id="v_tp">take_profit</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="tp_id_001">
+                        <field name="NUM">10</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="init_sl">
+                        <field name="VAR" id="v_sl">stop_loss</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="sl_id_001">
+                            <field name="NUM">10</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="init_profit">
+                            <field name="VAR" id="v_total_profit">total_profit</field>
+                            <value name="VALUE">
+                              <block type="math_number">
+                                <field name="NUM">0</field>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
     <statement name="SUBMARKET">
       <block type="trade_definition_tradeoptions" id="options_id_001">
         <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">
-          <shadow type="math_number_positive" id="dur_id_001">
+          <shadow type="math_number_positive">
             <field name="NUM">1</field>
           </shadow>
         </value>
         <value name="AMOUNT">
-          <shadow type="math_number_positive" id="amount_id_001">
-            <field name="NUM">0.35</field>
-          </shadow>
+          <block type="variables_get">
+            <field name="VAR" id="v_current_stake">current_stake</field>
+          </block>
         </value>
         <value name="PREDICTION">
           <shadow type="math_number_positive" id="predict_id_001">
@@ -81,16 +148,110 @@ const TEMPLATE_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="before_id_001" deletable="false" x="0" y="665">
+  <block type="before_purchase" id="before_id_001" deletable="false" x="0" y="600">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="purchase" id="buy_id_001">
+      <block type="purchase" id="purchase_id_001">
         <field name="PURCHASE_LIST">DIGITOVER</field>
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="after_id_001" x="714" y="292">
+  <block type="after_purchase" id="after_id_001" x="550" y="0">
     <statement name="AFTERPURCHASE_STACK">
-      <block type="trade_again" id="again_id_001"></block>
+      <block type="math_change">
+        <field name="VAR" id="v_total_profit">total_profit</field>
+        <value name="DELTA">
+          <block type="read_details">
+            <field name="DETAIL_INDEX">4</field>
+          </block>
+        </value>
+        <next>
+          <block type="controls_if">
+            <mutation else="1"></mutation>
+            <value name="IF0">
+              <block type="contract_check_result">
+                <field name="CHECK_RESULT">win</field>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="variables_set">
+                <field name="VAR" id="v_current_stake">current_stake</field>
+                <value name="VALUE">
+                  <block type="variables_get">
+                    <field name="VAR" id="v_stake">stake</field>
+                  </block>
+                </value>
+              </block>
+            </statement>
+            <statement name="ELSE">
+              <block type="variables_set">
+                <field name="VAR" id="v_current_stake">current_stake</field>
+                <value name="VALUE">
+                  <block type="math_arithmetic">
+                    <field name="OP">MULTIPLY</field>
+                    <value name="A">
+                      <block type="variables_get">
+                        <field name="VAR" id="v_current_stake">current_stake</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="variables_get">
+                        <field name="VAR" id="v_martingale">martingale</field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+              </block>
+            </statement>
+            <next>
+              <block type="controls_if">
+                <value name="IF0">
+                  <block type="logic_operation">
+                    <field name="OP">AND</field>
+                    <value name="A">
+                      <block type="logic_compare">
+                        <field name="OP">LT</field>
+                        <value name="A">
+                          <block type="variables_get">
+                            <field name="VAR" id="v_total_profit">total_profit</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="variables_get">
+                            <field name="VAR" id="v_tp">take_profit</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="logic_compare">
+                        <field name="OP">GT</field>
+                        <value name="A">
+                          <block type="variables_get">
+                            <field name="VAR" id="v_total_profit">total_profit</field>
+                          </block>
+                        </value>
+                        <value name="B">
+                          <block type="math_single">
+                            <field name="OP">NEG</field>
+                            <value name="NUM">
+                              <block type="variables_get">
+                                <field name="VAR" id="v_sl">stop_loss</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <statement name="DO0">
+                  <block type="trade_again"></block>
+                </statement>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
     </statement>
   </block>
 </xml>`;
@@ -106,7 +267,7 @@ interface IMarketData {
 
 interface ISignal {
     symbol: string;
-    type: 'OVER' | 'UNDER' | 'NONE';
+    type: 'OVER' | 'UNDER' | 'EVEN' | 'ODD' | 'MATCH' | 'NONE';
     prediction: number;
     confidence: number;
     reason: string;
@@ -131,8 +292,6 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
     const [takeProfit, setTakeProfit] = useState('10');
     const [stopLoss, setStopLoss] = useState('10');
 
-    const wsRef = useRef<WebSocket | null>(null);
-    const destroyed = useRef(false);
     const syncCount = useRef(0);
 
     // Initial State Setup
@@ -204,47 +363,56 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
     }, []);
 
     useEffect(() => {
-        const connect = async () => {
-            if (destroyed.current) return;
-            setWsStatus('connecting');
-            try {
-                const authInfo = OAuthTokenExchangeService.getAuthInfo();
-                if (!authInfo?.access_token) return;
+        let sub: any = null;
+        setWsStatus('connecting');
 
-                const wsUrl = await DerivWSAccountsService.getAuthenticatedWebSocketURL(authInfo.access_token);
-                const ws = new WebSocket(wsUrl);
-                wsRef.current = ws;
-
-                ws.onopen = () => {
-                    setWsStatus('connected');
-                    console.warn('[AI Scanner] Unified Feed Active. Subscribing...');
-                    
-                    SCAN_SYMBOLS.forEach((s, index) => {
-                        setTimeout(() => {
-                            if (ws.readyState === WebSocket.OPEN) {
-                                ws.send(JSON.stringify({
-                                    ticks_history: s.symbol,
-                                    count: WINDOW_SIZE, 
-                                    end: 'latest', 
-                                    style: 'ticks', 
-                                    subscribe: 1, 
-                                    req_id: 3000 + index
-                                }));
-                            }
-                        }, index * 150);
+        const init = () => {
+            if (!api_base.api) {
+                setTimeout(init, 1000);
+                return;
+            }
+            setWsStatus('connected');
+            console.warn('[AI Scanner] Subscribing via Global API...');
+            
+            SCAN_SYMBOLS.forEach((s, index) => {
+                setTimeout(() => {
+                    api_base.api.send({
+                        ticks_history: s.symbol,
+                        count: WINDOW_SIZE, 
+                        end: 'latest', 
+                        style: 'ticks', 
+                        subscribe: 1, 
+                        req_id: 3000 + index
                     });
-                };
+                }, index * 200);
+            });
 
-                ws.onmessage = handleMessage;
-                ws.onclose = () => { if (!destroyed.current) setTimeout(connect, 3000); };
-            } catch (e) { setWsStatus('error'); }
+            sub = api_base.api.onMessage().subscribe((envelope: any) => {
+                handleMessage({ data: JSON.stringify(envelope.data || envelope) } as MessageEvent);
+            });
         };
-        connect();
-        return () => { destroyed.current = true; wsRef.current?.close(); };
+
+        init();
+        return () => sub?.unsubscribe();
     }, [handleMessage]);
 
     const handleLaunchBot = useCallback(() => {
         if (!selectedSignal) return;
+        
+        let contract_type = 'overunder';
+        let purchase_list = 'DIGITOVER';
+        
+        if (selectedSignal.type === 'UNDER') {
+            contract_type = 'overunder';
+            purchase_list = 'DIGITUNDER';
+        } else if (selectedSignal.type === 'EVEN' || selectedSignal.type === 'ODD') {
+            contract_type = 'evenodd';
+            purchase_list = selectedSignal.type === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+        } else if (selectedSignal.type === 'MATCH') {
+            contract_type = 'matchdiff';
+            purchase_list = 'DIGITMATCH';
+        }
+
         const adaptiveXml = updateScannerBotXML(TEMPLATE_XML, {
             symbol: selectedSignal.symbol,
             stake: stake,
@@ -252,7 +420,7 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
             martingale: martingale,
             takeProfit,
             stopLoss
-        });
+        }).replace('overunder', contract_type).replace('DIGITOVER', purchase_list);
 
         try {
             const workspace = (window.Blockly as any)?.derivWorkspace;
@@ -276,18 +444,41 @@ const AIScannerPage: React.FC = observer((): JSX.Element => {
             
             const lowDigits = pcts.filter(p => p.digit <= 1).reduce((a,b) => a + b.pct, 0); 
             const highDigits = pcts.filter(p => p.digit >= 8).reduce((a,b) => a + b.pct, 0); 
+            const evenDigits = pcts.filter(p => p.digit % 2 === 0).reduce((a,b) => a + b.pct, 0);
+            const oddDigits = 100 - evenDigits;
 
-            if (lowDigits < 15) {
+            if (lowDigits < 17) {
                 results.push({
                     symbol: data.symbol, type: 'OVER', prediction: 1,
-                    confidence: Math.round(Math.min(100, (20 - lowDigits) * 10)),
+                    confidence: Math.round(Math.min(100, (22 - lowDigits) * 10)),
                     reason: `Low cluster 0-1`
                 });
-            } else if (highDigits < 15) {
+            } else if (highDigits < 17) {
                 results.push({
                     symbol: data.symbol, type: 'UNDER', prediction: 8,
-                    confidence: Math.round(Math.min(100, (20 - highDigits) * 10)),
+                    confidence: Math.round(Math.min(100, (22 - highDigits) * 10)),
                     reason: `Low cluster 8-9`
+                });
+            } else if (evenDigits > 58) {
+                results.push({
+                    symbol: data.symbol, type: 'EVEN', prediction: 0,
+                    confidence: Math.round((evenDigits - 50) * 10),
+                    reason: `Even Bias`
+                });
+            } else if (oddDigits > 58) {
+                results.push({
+                    symbol: data.symbol, type: 'ODD', prediction: 0,
+                    confidence: Math.round((oddDigits - 50) * 10),
+                    reason: `Odd Bias`
+                });
+            }
+
+            const peak = [...pcts].sort((a,b) => b.pct - a.pct)[0];
+            if (peak.pct > 14) {
+                results.push({
+                    symbol: data.symbol, type: 'MATCH', prediction: peak.digit,
+                    confidence: Math.round(peak.pct * 5),
+                    reason: `Frequent Digit ${peak.digit}`
                 });
             }
         });
