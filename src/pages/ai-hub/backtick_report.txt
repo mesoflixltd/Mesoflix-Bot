@@ -1,0 +1,395 @@
+1:import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+2:import { observer } from 'mobx-react-lite';
+3:import { useNavigate } from 'react-router-dom';
+4:import { OAuthTokenExchangeService } from '@/services/oauth-token-exchange.service';
+5:import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
+6:import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+7:import DBot from '../../external/bot-skeleton/scratch/dbot';
+8:import { updateScannerBotXML } from './utils/xml-engine';
+9:import './scanner.scss';
+10:
+11:// ─── Constants ──────────────────────────────────────────────────────────────
+12:const SCAN_SYMBOLS = [
+13:{ symbol: 'R_10',   name: 'Volatility 10 Index',      pip: 3 },
+14:{ symbol: 'R_25',   name: 'Volatility 25 Index',      pip: 3 },
+15:{ symbol: 'R_50',   name: 'Volatility 50 Index',      pip: 2 },
+16:{ symbol: 'R_75',   name: 'Volatility 75 Index',      pip: 2 },
+17:{ symbol: 'R_100',  name: 'Volatility 100 Index',     pip: 2 },
+18:{ symbol: '1HZ10V', name: 'Volatility 10 (1s) Index', pip: 3 },
+19:{ symbol: '1HZ25V', name: 'Volatility 25 (1s) Index', pip: 3 },
+20:{ symbol: '1HZ50V', name: 'Volatility 50 (1s) Index', pip: 2 },
+21:{ symbol: '1HZ75V', name: 'Volatility 75 (1s) Index', pip: 2 },
+22:{ symbol: '1HZ100V', name: 'Volatility 100 (1s) Index', pip: 2 },
+23:];
+24:
+25:const WINDOW_SIZE = 1000;
+26:
+27:const TEMPLATE_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+28:<block type="trade_definition" id="QK]GtWXajVFBGF2k)yIY" deletable="false" x="0" y="60">
+29:<statement name="TRADE_OPTIONS">
+30:<block type="trade_definition_market" id="D$BE:-(;903xNXkXf*09" deletable="false" movable="false">
+31:<field name="MARKET_LIST">synthetic_index</field>
+32:<field name="SUBMARKET_LIST">random_index</field>
+33:<field name="SYMBOL_LIST">1HZ10V</field>
+34:<next>
+35:<block type="trade_definition_tradetype" id="{VRbr#X0a=+!RP.1.:e{" deletable="false" movable="false">
+36:<field name="TRADETYPECAT_LIST">digits</field>
+37:<field name="TRADETYPE_LIST">overunder</field>
+38:<next>
+39:<block type="trade_definition_contracttype" id="@~{tRR{PC,=HC{6q(=J3" deletable="false" movable="false">
+40:<field name="TYPE_LIST">both</field>
+41:<next>
+42:<block type="trade_definition_candleinterval" id="xW](j~ubBTolA1C4,#oU" deletable="false" movable="false">
+43:<field name="CANDLEINTERVAL_LIST">60</field>
+44:<next>
+46:<field name="TIME_MACHINE_ENABLED">FALSE</field>
+47:<next>
+48:<block type="trade_definition_restartonerror" id=";_sKO;-d1(3LO1x?~_pt" deletable="false" movable="false">
+49:<field name="RESTARTONERROR">TRUE</field>
+50:</block>
+51:</next>
+52:</block>
+53:</next>
+54:</block>
+55:</next>
+56:</block>
+57:</next>
+58:</block>
+59:</next>
+60:</block>
+61:</statement>
+62:<statement name="SUBMARKET">
+63:<block type="trade_definition_tradeoptions" id="b11m|7u7%.n(Gu0/?aCp">
+64:<mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+65:<field name="DURATIONTYPE_LIST">t</field>
+66:<value name="DURATION">
+67:<shadow type="math_number_positive" id="Ck37)%cs:(DRIG];O((y">
+68:<field name="NUM">1</field>
+69:</shadow>
+70:</value>
+71:<value name="AMOUNT">
+72:<shadow type="math_number_positive" id="8.osJQssH5HaL@]L/Qd?">
+73:<field name="NUM">0.35</field>
+74:</shadow>
+75:</value>
+76:<value name="PREDICTION">
+77:<shadow type="math_number_positive" id="prediction_node">
+78:<field name="NUM">5</field>
+79:</shadow>
+80:</value>
+81:</block>
+82:</statement>
+83:</block>
+85:<statement name="DURING_PURCHASE_STACK">
+87:<value name="IF0">
+88:<block type="check_sell" id="o@?W5@$.64)pYdK4Yl7/"></block>
+89:</value>
+90:</block>
+91:</statement>
+92:</block>
+93:<block type="after_purchase" id="A}5zb)SY*THioN}MU#M-" x="714" y="292">
+94:<statement name="AFTERPURCHASE_STACK">
+95:<block type="trade_again" id="LTeOETK8*EOVC;VK53PP"></block>
+96:</statement>
+97:</block>
+98:<block type="before_purchase" id="=SWI%8N:6M^/9k/uw(_j" deletable="false" x="0" y="665">
+99:<statement name="BEFOREPURCHASE_STACK">
+100:<block type="purchase" id="?vonVWR:Kc0LJ#V_j0py">
+101:<field name="PURCHASE_LIST">DIGITOVER</field>
+102:</block>
+103:</statement>
+104:</block>
+105:</xml>`;
+106:
+107:interface IMarketData {
+108:symbol: string;
+109:prices: number[];
+110:digits: number[];
+111:pip_size: number;
+112:last_update: number;
+113:}
+114:
+115:interface ISignal {
+116:symbol: string;
+117:type: 'OVER' | 'UNDER' | 'NONE';
+118:prediction: number;
+119:confidence: number;
+120:reason: string;
+121:}
+122:
+123:// ─── Helper functions ────────────────────────────────────────────────────────
+124:const getDigit = (price: number, pip: number) => {
+125:if (price === undefined || isNaN(price)) return 0;
+126:const s = price.toFixed(pip);
+127:return Number(s[s.length - 1]);
+128:};
+129:
+130:// ─── Main Component ──────────────────────────────────────────────────────────
+131:const AIScannerPage: React.FC = observer(() => {
+132:const navigate = useNavigate();
+133:const [marketStats, setMarketStats] = useState<Record<string, IMarketData>>({});
+134:const [loading, setLoading] = useState(true);
+135:const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+136:const [selectedSignal, setSelectedSignal] = useState<ISignal | null>(null);
+137:
+138:// Modal State
+139:const [stake, setStake] = useState('0.35');
+140:const [takeProfit, setTakeProfit] = useState('10');
+141:const [stopLoss, setStopLoss] = useState('10');
+142:
+143:const wsRef = useRef<WebSocket | null>(null);
+144:const destroyed = useRef(false);
+145:
+146:// Initialise empty stats
+147:useEffect(() => {
+148:const initialStats: Record<string, IMarketData> = {};
+149:SCAN_SYMBOLS.forEach(s => {
+150:initialStats[s.symbol] = {
+151:symbol: s.symbol,
+152:prices: [],
+153:digits: [],
+154:pip_size: s.pip,
+155:last_update: Date.now()
+156:};
+157:});
+158:setMarketStats(initialStats);
+159:}, []);
+160:
+161:// ─── WebSocket Logic ─────────────────────────────────────────────────────
+162:useEffect(() => {
+163:let wsUrl: string | null = null;
+164:const connect = async () => {
+165:if (destroyed.current) return;
+166:setWsStatus('connecting');
+167:try {
+168:const authInfo = OAuthTokenExchangeService.getAuthInfo();
+169:if (!authInfo?.access_token) return;
+170:wsUrl = await DerivWSAccountsService.getAuthenticatedWebSocketURL(authInfo.access_token);
+171:const ws = new WebSocket(wsUrl);
+172:wsRef.current = ws;
+173:ws.onopen = () => {
+174:setWsStatus('connected');
+175:SCAN_SYMBOLS.forEach(s => {
+176:ws.send(JSON.stringify({
+177:ticks_history: s.symbol,
+178:count: WINDOW_SIZE, end: 'latest', style: 'ticks', subscribe: 1
+179:}));
+180:});
+181:};
+182:ws.onmessage = (event) => {
+183:if (destroyed.current) return;
+184:const msg = JSON.parse(event.data);
+185:const { msg_type, echo_req } = msg;
+186:if (msg_type === 'history') {
+187:const sym = echo_req.ticks_history;
+188:const prices = (msg.history?.prices ?? []).map(Number);
+189:const pip = Number(msg.pip_size ?? 2);
+190:setMarketStats(prev => ({
+191:...prev,
+192:[sym]: { ...prev[sym], prices, digits: prices.map(p => getDigit(p, pip)), pip_size: pip, last_update: Date.now() }
+193:}));
+194:setLoading(false);
+195:}
+196:if (msg_type === 'tick') {
+197:const t = msg.tick;
+198:const sym = t.symbol;
+199:const quote = Number(t.quote);
+200:const pip = Number(t.pip_size ?? 2);
+201:const digit = getDigit(quote, pip);
+202:setMarketStats(prev => {
+203:const current = prev[sym];
+204:if (!current) return prev;
+205:return {
+206:...prev,
+207:[sym]: {
+208:...current,
+209:prices: [...current.prices, quote].slice(-WINDOW_SIZE),
+210:digits: [...current.digits, digit].slice(-WINDOW_SIZE),
+211:pip_size: pip, last_update: Date.now()
+212:}
+213:};
+214:});
+215:}
+216:};
+217:ws.onclose = () => { if (!destroyed.current) setTimeout(connect, 3000); };
+218:} catch (e: any) { setWsStatus('error'); }
+219:};
+220:connect();
+221:return () => { destroyed.current = true; wsRef.current?.close(); };
+222:}, []);
+223:
+224:// ─── Bot Orchestration ───────────────────────────────────────────────────
+225:const handleLaunchBot = useCallback(() => {
+226:if (!selectedSignal) return;
+227:
+228:// 1. Recalculate adaptive settings:
+229:// Inject recalculate call into Bot Journal if bot loses (Phase 4 PRD)
+230:const adaptiveXml = updateScannerBotXML(TEMPLATE_XML, {
+231:symbol: selectedSignal.symbol,
+232:stake: stake,
+233:prediction: selectedSignal.prediction,
+234:takeProfit,
+235:stopLoss
+236:});
+237:
+238:// 2. Load into Blockly Workspace
+239:try {
+240:const dom = window.Blockly.utils.xml.textToDom(adaptiveXml);
+241:window.Blockly.derivWorkspace.clear();
+242:window.Blockly.Xml.domToWorkspace(dom, window.Blockly.derivWorkspace);
+243:
+244:// 3. Log to Journal (Adaptive Recovery Hook)
+245:globalObserver.emit('ui.log.info', `[AI Scanner] Launching DSS Engine for ${selectedSignal.symbol}...`);
+246:globalObserver.emit('ui.log.info', `[DSS] Strategy: Digit ${selectedSignal.type} ${selectedSignal.prediction}`);
+247:
+248:// 4. Run Bot
+249:setTimeout(() => {
+250:DBot.runBot();
+251:// 5. Redirect to Builder
+252:navigate('/');
+253:}, 500);
+254:} catch (e: any) {
+255:console.error('Bot launch failed:', e);
+256:}
+257:}, [selectedSignal, stake, takeProfit, stopLoss, navigate]);
+258:
+259:// ─── Real-time Analysis ──────────────────────────────────────────────────
+260:const signals = useMemo(() => {
+261:const results: ISignal[] = [];
+262:Object.values(marketStats).forEach(data => {
+263:if (data.digits.length < 300) return;
+264:const freq: Record<number, number> = {};
+265:data.digits.forEach(d => { freq[d] = (freq[d] || 0) + 1; });
+266:const total = data.digits.length;
+267:const pcts = [0,1,2,3,4,5,6,7,8,9].map(d => ({ digit: d, pct: ((freq[d] || 0) / total) * 100 }));
+268:
+269:const under3 = pcts.filter(p => p.digit <= 2).reduce((a,b) => a + b.pct, 0);
+270:const over7  = pcts.filter(p => p.digit >= 8).reduce((a,b) => a + b.pct, 0);
+271:
+272:if (under3 < 20) {
+273:results.push({
+274:symbol: data.symbol, type: 'OVER', prediction: 2,
+275:confidence: Math.round(Math.min(100, (28 - under3) * 5)),
+276:reason: `Low density Under-3 digits (${under3.toFixed(1)}%)`
+277:});
+278:} else if (over7 < 20) {
+279:results.push({
+280:symbol: data.symbol, type: 'UNDER', prediction: 8,
+281:confidence: Math.round(Math.min(100, (28 - over7) * 5)),
+282:reason: `Low density Over-7 digits (${over7.toFixed(1)}%)`
+283:});
+284:}
+285:});
+286:return results.sort((a,b) => b.confidence - a.confidence);
+287:}, [marketStats]);
+288:
+289:return (
+290:<div className='dss-scanner'>
+291:<div className='dss-scanner__header'>
+292:<div className='dss-scanner__title'>
+293:<h2>Deriv Smart Scanner</h2>
+294:<div className={`dss-status dss-status--${wsStatus}`}>
+295:{wsStatus === 'connected' ? '● Engine Active' : '○ Engine Syncing...'}
+296:</div>
+297:</div>
+298:<div className='dss-scanner__summary'>
+299:Scanned Indices: {SCAN_SYMBOLS.length} / Ticks: {WINDOW_SIZE * SCAN_SYMBOLS.length}
+300:</div>
+301:</div>
+302:
+303:<div className='dss-grid'>
+304:{SCAN_SYMBOLS.map(s => {
+305:const data = marketStats[s.symbol];
+306:const signal = signals.find(sig => sig.symbol === s.symbol);
+307:return (
+308:<div key={s.symbol} className={`dss-card ${signal ? 'dss-card--has-signal' : ''}`}>
+309:<div className='dss-card__market'>
+310:<span className='dss-card__name'>{s.name}</span>
+311:<span className='dss-card__symbol'>{s.symbol}</span>
+312:</div>
+313:<div className='dss-card__visual'>
+314:<div className='dss-distribution'>
+315:{[0,1,2,3,4,5,6,7,8,9].map(d => {
+316:const count = data?.digits.filter(x => x === d).length || 0;
+317:const pct = data?.digits.length ? (count / data.digits.length) * 100 : 0;
+318:const deviation = pct - 10;
+319:return (
+320:<div key={d} className='dss-dist-bar'>
+321:<div
+322:className={`dss-dist-fill ${deviation > 3 ? 'high' : (deviation < -3 ? 'low' : '')}`}
+323:style={{ height: `${Math.min(pct * 3.5, 100)}%` }}
+324:/>
+325:<span className='dss-dist-label'>{d}</span>
+326:</div>
+327:);
+328:})}
+329:</div>
+330:</div>
+331:{signal ? (
+332:<div className='dss-signal animated pulse'>
+333:<div className='dss-signal__type'>
+334:<span className='label'>Signal:</span>
+335:<span className={`value ${signal.type.toLowerCase()}`}>{signal.type} {signal.prediction}</span>
+336:</div>
+337:<div className='dss-signal__confidence'>
+338:<div className='conf-bar'><div className='conf-fill' style={{ width: `${signal.confidence}%` }} /></div>
+339:<span className='conf-text'>{signal.confidence}% Confidence</span>
+340:</div>
+341:<button className='dss-trade-btn' onClick={() => setSelectedSignal(signal)}>Load & Run Bot</button>
+342:</div>
+343:) : (
+344:<div className='dss-no-signal'>Analyzing Market Volatility...</div>
+345:)}
+346:</div>
+347:);
+348:})}
+349:</div>
+350:
+351:{/* Launch Modal */}
+352:{selectedSignal && (
+353:<div className='dss-modal-overlay'>
+354:<div className='dss-modal'>
+355:<div className='dss-modal__header'>
+356:<h3>Initialise DSS Autopilot</h3>
+357:<button onClick={() => setSelectedSignal(null)}>×</button>
+358:</div>
+359:<div className='dss-modal__body'>
+360:<div className='dss-modal__signal-info'>
+361:<span className='market'>{selectedSignal.symbol}</span>
+362:<span className={`type ${selectedSignal.type.toLowerCase()}`}>{selectedSignal.type} {selectedSignal.prediction}</span>
+363:</div>
+364:<div className='dss-form-grid'>
+365:<div className='dss-input-group'>
+366:<label>Stake (USD)</label>
+367:<input type='number' value={stake} onChange={e => setStake(e.target.value)} />
+368:</div>
+369:<div className='dss-input-group'>
+370:<label>Take Profit (USD)</label>
+371:<input type='number' value={takeProfit} onChange={e => setTakeProfit(e.target.value)} />
+372:</div>
+373:<div className='dss-input-group'>
+374:<label>Stop Loss (USD)</label>
+375:<input type='number' value={stopLoss} onChange={e => setStopLoss(e.target.value)} />
+376:</div>
+377:</div>
+378:</div>
+379:<div className='dss-modal__footer'>
+380:<button className='cancel-btn' onClick={() => setSelectedSignal(null)}>Cancel</button>
+381:<button className='launch-btn' onClick={handleLaunchBot}>Launch Strategy →</button>
+382:</div>
+383:</div>
+384:</div>
+385:)}
+386:
+387:{loading && (
+388:<div className='dss-loading-overlay'>
+389:<div className='dss-spinner' />
+390:<p>Priming DSS Intelligence... Synching 10 Markets</p>
+391:</div>
+392:)}
+393:</div>
+394:);
+395:});
+396:
+397:export default AIScannerPage;
+398:

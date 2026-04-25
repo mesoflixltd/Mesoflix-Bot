@@ -1,45 +1,14 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import BulkTradingPage from './bulk-trading';
+import AIScannerPage from './scanner';
 import './ai-hub.scss';
 
 // ─── Sub-page components ──────────────────────────────────────────────────────
 
-const AIScannerPage = () => (
+const AIScannerPageTab = () => (
     <div className='aihub-subpage aihub-subpage--scanner'>
-        <div className='aihub-subpage__hero'>
-            <div className='aihub-subpage__hero-icon'>🔍</div>
-            <h2>AI Scanner</h2>
-            <p>Real-time pattern recognition across multiple markets. The scanner monitors digit distributions, streak patterns, and statistical anomalies to surface high-probability trade opportunities.</p>
-            <div className='aihub-badge aihub-badge--live'>● Live Engine — Coming Soon</div>
-        </div>
-
-        <div className='aihub-features-grid'>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>📊</div>
-                <h3>Digit Bias Detection</h3>
-                <p>Identifies digits that are statistically over or under-represented based on rolling window analysis.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>🔥</div>
-                <h3>Hot Zone Alerts</h3>
-                <p>Notifies you when a market enters a statistically significant run — even, odd, rise, or fall clusters.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>⚡</div>
-                <h3>Momentum Signals</h3>
-                <p>Tracks price velocity across synthetic indices to detect acceleration patterns before they peak.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-            <div className='aihub-feature-card'>
-                <div className='aihub-feature-card__icon'>🎯</div>
-                <h3>Entry Score</h3>
-                <p>A 0–100 confidence score aggregated from all active signals, helping you decide when to trade.</p>
-                <div className='aihub-feature-card__status aihub-feature-card__status--pending'>In Development</div>
-            </div>
-        </div>
+        <AIScannerPage />
     </div>
 );
 
@@ -145,7 +114,7 @@ const AIHub = observer(() => {
 
             {/* ─── Sub-page content ─── */}
             <div className='aihub-content'>
-                {activeTab === 'scanner'  && <AIScannerPage />}
+                {activeTab === 'scanner'  && <AIScannerPageTab />}
                 {activeTab === 'bulk'     && <BulkTradingPageTab />}
                 {activeTab === 'ultimate' && <UltimateTraderPage />}
             </div>
