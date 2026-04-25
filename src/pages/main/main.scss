@@ -148,7 +148,9 @@
                 &--main {
                     &__tabs {
                         display: flex;
-                        justify-content: space-between;
+                        justify-content: flex-start;
+                        width: 100% !important;
+                        flex: 1;
 
                         @include mobile-or-tablet-screen {
                             flex-direction: column;
