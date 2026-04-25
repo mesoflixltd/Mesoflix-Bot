@@ -8,6 +8,7 @@ export const updateScannerBotXML = (
         symbol: string, 
         stake: string, 
         prediction: number,
+        martingale: string,
         takeProfit: string,
         stopLoss: string 
     }
@@ -16,11 +17,10 @@ export const updateScannerBotXML = (
     const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
 
     // 1. Update Symbol
-    const marketBlocks = xmlDoc.getElementsByTagName('block');
-    for (let i = 0; i < marketBlocks.length; i++) {
-        const block = marketBlocks[i];
-        if (block.getAttribute('type') === 'trade_definition_market') {
-            const fields = block.getElementsByTagName('field');
+    const blocks = xmlDoc.getElementsByTagName('block');
+    for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i].getAttribute('type') === 'trade_definition_market') {
+            const fields = blocks[i].getElementsByTagName('field');
             for (let j = 0; j < fields.length; j++) {
                 if (fields[j].getAttribute('name') === 'SYMBOL_LIST') {
                     fields[j].textContent = settings.symbol;
@@ -29,24 +29,27 @@ export const updateScannerBotXML = (
         }
     }
 
-    // 2. Update Stake (AMOUNT)
-    // In trade_definition_tradeoptions -> value name="AMOUNT" -> shadow/block -> field name="NUM"
-    const valueNodes = xmlDoc.getElementsByTagName('value');
-    for (let i = 0; i < valueNodes.length; i++) {
-        const value = valueNodes[i];
-        if (value.getAttribute('name') === 'AMOUNT') {
-            const numFields = value.getElementsByTagName('field');
-            for (let j = 0; j < numFields.length; j++) {
-                if (numFields[j].getAttribute('name') === 'NUM') {
-                    numFields[j].textContent = settings.stake;
-                }
-            }
+    // 2. Update Numerical Values by Shadow/Block IDs
+    // We'll use IDs set in our TEMPLATE_XML for precision
+    const fields = xmlDoc.getElementsByTagName('field');
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        const parent = field.parentNode as Element | null;
+        if (!parent) continue;
+        
+        const parentId = parent.getAttribute('id');
+        
+        if (parentId === 'amount_id_001') field.textContent = settings.stake;
+        if (parentId === 'predict_id_001') field.textContent = settings.prediction.toString();
+        if (parentId === 'martingale_id_001') field.textContent = settings.martingale;
+        if (parentId === 'tp_id_001') field.textContent = settings.takeProfit;
+        if (parentId === 'sl_id_001') field.textContent = settings.stopLoss;
+
+        // Special: Update Purchase List based on signal
+        if (field.getAttribute('name') === 'PURCHASE_LIST') {
+            field.textContent = settings.prediction === 1 ? 'DIGITOVER' : 'DIGITUNDER';
         }
     }
-
-    // 3. Update Prediction (if applicable)
-    // We can add a prediction block if it doesn't exist, but usually it's in a specific trade type block.
-    // For this PRD, we assume the bot is configured for DIGIT trades or we inject the prediction.
 
     return new XMLSerializer().serializeToString(xmlDoc);
 };
